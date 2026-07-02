@@ -1,42 +1,68 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, MapPin, Shield, Users, Star, Building2, Heart,
-  MessageCircle, Award, AlertCircle, ArrowRight, ChevronRight,
-  CheckCircle, Zap, Lock, TrendingUp,
+  Search, MapPin, Shield, Star, AlertCircle, ArrowRight,
+  CheckCircle, Zap, Lock, TrendingUp, ChevronRight,
+  Clock, Users, FileCheck, ChevronLeft, Sparkles
 } from "lucide-react";
 import { serviceAPI, userAPI, statsAPI } from "../services/api";
-import { ServiceCard, ResidentCard, LoadingSpinner } from "../components/ui/Cards";
-import JourneyCarousel from "../components/ui/JourneyCarousel";
+import { ServiceCard, LoadingSpinner } from "../components/ui/Cards";
 
+/* ─── static data ─── */
 const LOCS = ["Bachupally", "Miyapur", "Secunderabad"];
 
 const CATS = [
-  { label: "Medical",     icon: "🏥", q: "Medical"        },
-  { label: "Grocery",     icon: "🛒", q: "Grocery Stores"  },
-  { label: "Restaurants", icon: "🍽️", q: "Restaurants"    },
-  { label: "Hostels",     icon: "🏠", q: "Hostels"         },
-  { label: "Education",   icon: "📚", q: "Education"       },
-  { label: "Transport",   icon: "🚌", q: "Transportation"  },
-  { label: "Pharmacies",  icon: "💊", q: "Pharmacies"      },
-  { label: "Clinics",     icon: "🩺", q: "Clinics"         },
+  { label: "Medical",     icon: "🏥", q: "Medical"       },
+  { label: "Grocery",     icon: "🛒", q: "Grocery Stores" },
+  { label: "Restaurants", icon: "🍽️", q: "Restaurants"   },
+  { label: "Hostels",     icon: "🏠", q: "Hostels"        },
+  { label: "Education",   icon: "📚", q: "Education"      },
+  { label: "Transport",   icon: "🚌", q: "Transportation" },
+  { label: "Pharmacies",  icon: "💊", q: "Pharmacies"     },
+  { label: "Clinics",     icon: "🩺", q: "Clinics"        },
 ];
 
 const TESTIMONIALS = [
-  { text: "Within 3 days of arriving in Bachupally I had found a hostel, a nearby clinic, and a local guide who helped me with everything. TrustBridge felt like having a friend already there.", name: "Priya Sharma",  role: "Student, Bihar to Hyderabad",             avatar: "P", color: "#2563EB" },
-  { text: "The verified resident I connected with knew every shortcut, shop, and service in Miyapur. It saved me weeks of figuring things out on my own.",                                      name: "Arjun Reddy",   role: "IT Professional, Chennai to Hyderabad",   avatar: "A", color: "#059669" },
-  { text: "I was nervous about moving with two kids. TrustBridge helped us find a school, a doctor, and a trustworthy grocery store before we even arrived.",                                   name: "Fatima Khan",   role: "Family, Mumbai to Hyderabad",             avatar: "F", color: "#7C3AED" },
+  {
+    text: "Within 3 days of arriving in Bachupally I had a hostel, a clinic, and a guide who knew every street. TrustBridge felt like having a friend already there.",
+    name: "Priya Sharma", role: "Student · Bihar to Hyderabad", avatar: "P", color: "#2563EB",
+    rating: 5,
+  },
+  {
+    text: "The verified resident I connected with saved me weeks of confusion. He knew every shortcut, shop, and service in Miyapur.",
+    name: "Arjun Reddy", role: "IT Professional · Chennai to Hyderabad", avatar: "A", color: "#059669",
+    rating: 5,
+  },
+  {
+    text: "Moving with two kids was overwhelming. TrustBridge helped us find a school, a doctor, and a trustworthy grocery store before we even arrived.",
+    name: "Fatima Khan", role: "Family · Mumbai to Hyderabad", avatar: "F", color: "#7C3AED",
+    rating: 5,
+  },
 ];
 
 const GUIDES = [
-  { name: "Rajesh Kumar", area: "Miyapur",      score: 94, color: "#059669", i: "R", delay: 0.3 },
-  { name: "Sneha Reddy",  area: "Bachupally",   score: 88, color: "#2563eb", i: "S", delay: 0.4 },
-  { name: "Anil Sharma",  area: "Secunderabad", score: 82, color: "#7c3aed", i: "A", delay: 0.5 },
+  { name: "Rajesh Kumar", area: "Miyapur",      years: 8,  helped: 142, lang: "Telugu, Hindi, English", initial: "R", color: "#059669", response: "~2 hrs" },
+  { name: "Sneha Reddy",  area: "Bachupally",   years: 5,  helped: 97,  lang: "Telugu, English",       initial: "S", color: "#2563eb", response: "~1 hr"  },
+  { name: "Anil Sharma",  area: "Secunderabad", years: 12, helped: 203, lang: "Hindi, Telugu, English", initial: "A", color: "#7c3aed", response: "~3 hrs" },
 ];
 
-// Format a raw count into a display string.
-// Shows exact number when small; adds + suffix once it clears a threshold.
+const FEATURES = [
+  { icon: <Shield size={22} />,    color: "#2563eb", bg: "#eff6ff", title: "Verified Services",         desc: "Every provider passes identity & document verification before listing." },
+  { icon: <FileCheck size={22} />, color: "#059669", bg: "#f0fdf4", title: "AI Document Check",         desc: "Aadhaar & GST verification powered by AI OCR — no manual delays." },
+  { icon: <Sparkles size={22} />,  color: "#d97706", bg: "#fffbeb", title: "Fake Review Detection",     desc: "Machine learning flags suspicious reviews so you always see the truth." },
+  { icon: <Users size={22} />,     color: "#7c3aed", bg: "#faf5ff", title: "Community Guides",          desc: "Real locals who've lived here for years, ready to share their knowledge." },
+  { icon: <Lock size={22} />,      color: "#0891b2", bg: "#ecfeff", title: "Secure Messaging",          desc: "Your contact details stay private. Chat safely inside TrustBridge." },
+  { icon: <Star size={22} />,      color: "#dc2626", bg: "#fef2f2", title: "Verified Reviews",          desc: "Only users who actually booked a service can leave a review." },
+];
+
+const STEPS = [
+  { n: "01", icon: "🔍", title: "Search",  desc: "Find services or guides in your area using our smart search." },
+  { n: "02", icon: "⚖️", title: "Compare", desc: "Read verified reviews, check trust scores, compare prices."  },
+  { n: "03", icon: "💬", title: "Connect", desc: "Message providers or community guides directly and safely."    },
+  { n: "04", icon: "✅", title: "Book",    desc: "Confirm your booking and settle in with confidence."           },
+];
+
 function fmtStat(n) {
   if (n === null || n === undefined) return "—";
   if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k+`;
@@ -44,24 +70,183 @@ function fmtStat(n) {
   return String(n);
 }
 
+/* ──────────────────────────────────────────
+   JOURNEY CAROUSEL
+────────────────────────────────────────── */
+const JOURNEY_SLIDES = [
+  {
+    step: "01", emoji: "🔍",
+    title: "Search Trusted Services",
+    desc: "Browse verified clinics, hostels, restaurants, and more — all checked and rated by your community.",
+    color: "#2563eb",
+    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=340&fit=crop&auto=format",
+  },
+  {
+    step: "02", emoji: "🤝",
+    title: "Connect with Verified Guides",
+    desc: "Meet Aadhaar-verified locals who know the city inside out. Ask questions, get directions, feel at home.",
+    color: "#059669",
+    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&h=340&fit=crop&auto=format",
+  },
+  {
+    step: "03", emoji: "📅",
+    title: "Book Trusted Local Services",
+    desc: "Confirm appointments instantly. Secure booking, verified providers, and real reviews from real users.",
+    color: "#d97706",
+    image: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&h=340&fit=crop&auto=format",
+  },
+  {
+    step: "04", emoji: "🏡",
+    title: "Settle with Confidence",
+    desc: "From day one to feeling at home — TrustBridge stays with you every step of your new city journey.",
+    color: "#7c3aed",
+    image: "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=600&h=340&fit=crop&auto=format",
+  },
+];
+
+function JourneyCarousel() {
+  const [active, setActive] = useState(0);
+  const timer = useRef(null);
+
+  const goTo = (idx) => { clearTimeout(timer.current); setActive(idx); };
+
+  useEffect(() => {
+    timer.current = setTimeout(
+      () => setActive(i => (i + 1) % JOURNEY_SLIDES.length),
+      4500
+    );
+    return () => clearTimeout(timer.current);
+  }, [active]);
+
+  const slide = JOURNEY_SLIDES[active];
+
+  return (
+    <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid #e2e8f0",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.09)", background: "#fff" }}>
+
+      {/* image */}
+      <div style={{ position: "relative", height: 190, overflow: "hidden", background: "#f1f5f9" }}>
+        <AnimatePresence mode="wait">
+          <motion.img key={slide.step} src={slide.image} alt={slide.title}
+            initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%",
+              objectFit: "cover", display: "block" }}
+            onError={e => { e.target.style.display = "none"; }} />
+        </AnimatePresence>
+        <div style={{ position: "absolute", inset: 0,
+          background: "linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 55%)" }} />
+        <div style={{ position: "absolute", top: 12, left: 12, display: "flex",
+          alignItems: "center", gap: 6, background: "rgba(255,255,255,0.93)",
+          borderRadius: 999, padding: "3px 10px", backdropFilter: "blur(4px)" }}>
+          <span style={{ fontSize: 15 }}>{slide.emoji}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: slide.color,
+            letterSpacing: "0.07em", textTransform: "uppercase" }}>Step {slide.step}</span>
+        </div>
+      </div>
+
+      {/* text */}
+      <div style={{ padding: "16px 20px 12px" }}>
+        <AnimatePresence mode="wait">
+          <motion.div key={slide.step}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
+            <h3 style={{ fontSize: 14.5, fontWeight: 800, color: "#0f172a", margin: "0 0 6px", lineHeight: 1.3 }}>
+              {slide.title}
+            </h3>
+            <p style={{ fontSize: 12.5, color: "#475569", lineHeight: 1.65, margin: 0 }}>{slide.desc}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* controls */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 20px 14px" }}>
+        <div style={{ display: "flex", gap: 5 }}>
+          {JOURNEY_SLIDES.map((_, i) => (
+            <button key={i} onClick={() => goTo(i)}
+              style={{ width: i === active ? 20 : 6, height: 6, borderRadius: 999, padding: 0,
+                border: "none", cursor: "pointer",
+                background: i === active ? slide.color : "#e2e8f0",
+                transition: "all 0.25s" }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            () => goTo((active - 1 + JOURNEY_SLIDES.length) % JOURNEY_SLIDES.length),
+            () => goTo((active + 1) % JOURNEY_SLIDES.length),
+          ].map((fn, i) => (
+            <button key={i} onClick={fn}
+              style={{ width: 28, height: 28, borderRadius: 7, border: "1.5px solid #e2e8f0",
+                background: "#f8fafc", cursor: "pointer", display: "flex",
+                alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#eff6ff"; e.currentTarget.style.borderColor = "#bfdbfe"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#e2e8f0"; }}>
+              {i === 0 ? <ChevronLeft size={13} color="#64748b" /> : <ChevronRight size={13} color="#64748b" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ borderTop: "1px solid #f1f5f9", padding: "10px 20px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "#fafafa" }}>
+        <span style={{ fontSize: 11, color: "#94a3b8" }}>{active + 1} / {JOURNEY_SLIDES.length}</span>
+        <Link to="/register"
+          style={{ display: "inline-flex", alignItems: "center", gap: 5,
+            background: slide.color, color: "#fff", textDecoration: "none",
+            borderRadius: 7, padding: "5px 13px", fontSize: 12, fontWeight: 700,
+            transition: "opacity 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+          onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+          Get started <ArrowRight size={11} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ─── tiny reusable pill ─── */
+function Pill({ children, color = "#2563eb", bg = "#eff6ff" }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700,
+      padding: "3px 10px", borderRadius: 999, background: bg, color }}>
+      {children}
+    </span>
+  );
+}
+
+/* ─── section label ─── */
+function SectionLabel({ children }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700,
+      letterSpacing: "0.08em", textTransform: "uppercase", color: "#2563eb",
+      background: "#eff6ff", padding: "4px 12px", borderRadius: 999, marginBottom: 16 }}>
+      {children}
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
 export default function HomePage() {
-  const [q,   setQ]   = useState("");
-  const [loc, setLoc] = useState("");
-  const [svcs, setSvcs] = useState([]);
-  const [res,  setRes]  = useState([]);
-  const [loading, setLd] = useState(true);
-  const [err, setErr]   = useState(false);
-  const [stats, setStats] = useState(null); // null = loading, object = loaded
+  const [q,      setQ]      = useState("");
+  const [loc,    setLoc]    = useState("");
+  const [svcs,   setSvcs]   = useState([]);
+  const [loading, setLd]    = useState(true);
+  const [err,    setErr]    = useState(false);
+  const [stats,  setStats]  = useState(null);
 
   useEffect(() => {
     Promise.all([serviceAPI.getAll({ sort: "featured" }), userAPI.getResidents({ minTrustScore: 70 })])
-      .then(([s, r]) => { setSvcs(s.data.data.slice(0, 6)); setRes(r.data.data.slice(0, 3)); })
+      .then(([s]) => { setSvcs(s.data.data.slice(0, 6)); })
       .catch(() => setErr(true))
       .finally(() => setLd(false));
-
     statsAPI.get()
       .then(({ data }) => setStats(data.data))
-      .catch(() => setStats({})); // silently fall back — UI shows fallbacks
+      .catch(() => setStats({}));
   }, []);
 
   const go = (e) => {
@@ -73,9 +258,9 @@ export default function HomePage() {
   };
 
   return (
-    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", color: "#0f172a" }}>
+    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: "#F8FAFC", color: "#0f172a" }}>
 
-      {/* offline notice */}
+      {/* ── offline notice ── */}
       {err && (
         <div style={{ background: "#fffbeb", borderBottom: "1px solid #fde68a", padding: "8px 0" }}>
           <div className="wrap" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#92400e" }}>
@@ -85,150 +270,135 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════ HERO */}
-      <section style={{
-        background: "linear-gradient(150deg,#060c1d 0%,#0d1d42 45%,#071224 100%)",
-        position: "relative", overflow: "hidden",
-        minHeight: "88vh", display: "flex", alignItems: "center",
-      }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 55% 65% at 8% 50%, rgba(37,99,235,0.18) 0%, transparent 60%), radial-gradient(ellipse 35% 45% at 92% 25%, rgba(16,185,129,0.08) 0%, transparent 55%)" }} />
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025,
-          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+      {/* ════════════════════════════════════════════════════════ HERO */}
+      <section style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", overflow: "hidden", position: "relative" }}>
+        {/* subtle geometric accent */}
+        <div style={{ position: "absolute", top: -120, right: -120, width: 480, height: 480, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -80, left: -80, width: 320, height: 320, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(34,197,94,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
 
-        <div className="wrap" style={{ position: "relative", paddingTop: 72, paddingBottom: 72, width: "100%" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 56, alignItems: "center" }} className="hero-grid">
+        <div className="wrap" style={{ paddingTop: 80, paddingBottom: 80, position: "relative" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }} className="hero-grid">
 
-            {/* LEFT — copy */}
-            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#60a5fa", marginBottom: 20 }}>
-                Trusted Local Assistance · Hyderabad
-              </p>
+            {/* ── LEFT copy ── */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+              <div style={{ marginBottom: 20 }}>
+                <Pill color="#2563eb" bg="#eff6ff">
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} className="pulse-dot" />
+                  Trusted Local Assistance · Hyderabad
+                </Pill>
+              </div>
 
-              <h1 style={{ fontSize: "clamp(2.25rem, 4vw, 3.25rem)", fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.025em", margin: "0 0 22px" }}>
-                Settle into your<br />
-                <span style={{ background: "linear-gradient(90deg,#60a5fa,#34d399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                  new city safely
-                </span>
+              <h1 style={{ fontSize: "clamp(2rem,4vw,3.25rem)", fontWeight: 800, color: "#0f172a",
+                lineHeight: 1.1, letterSpacing: "-0.03em", margin: "0 0 20px" }}>
+                Find Trusted Local&nbsp;Help—
+                <span style={{ color: "#2563eb" }}>Without the Guesswork</span>
               </h1>
 
-              <p style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1.75, maxWidth: 420, margin: "0 0 36px" }}>
-                Connect with <strong style={{ color: "#e2e8f0", fontWeight: 600 }}>local residents</strong>,
-                book trusted services, and get real community support.
+              <p style={{ fontSize: 17, color: "#475569", lineHeight: 1.7, maxWidth: 440, margin: "0 0 36px", fontWeight: 400 }}>
+                Connect with verified local services and experienced community guides
+                to settle confidently into your new city.
               </p>
 
-              {/* search */}
-              <form onSubmit={go} style={{ marginBottom: 28 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.5)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", flex: 1, minWidth: 0 }}>
-                    <Search style={{ width: 15, height: 15, color: "#94a3b8", flexShrink: 0 }} />
-                    <input value={q} onChange={e => setQ(e.target.value)} placeholder="Clinic, hostel, grocery store…"
-                      style={{ flex: 1, border: "none", outline: "none", fontSize: 14, color: "#0f172a", background: "transparent" }} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderLeft: "1px solid #f1f5f9" }}>
-                    <MapPin style={{ width: 13, height: 13, color: "#94a3b8", flexShrink: 0 }} />
-                    <select value={loc} onChange={e => setLoc(e.target.value)} style={{ border: "none", outline: "none", fontSize: 13, color: "#475569", background: "transparent", cursor: "pointer" }}>
-                      <option value="">All Areas</option>
-                      {LOCS.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ padding: 6 }}>
-                    <button type="submit" style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, padding: "9px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 12px rgba(37,99,235,0.4)" }}>
-                      Search
-                    </button>
-                  </div>
-                </div>
-              </form>
-
               {/* CTAs */}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 44 }}>
-                <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#2563eb", color: "#fff", textDecoration: "none", borderRadius: 10, padding: "11px 22px", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 18px rgba(37,99,235,0.45)" }}>
-                  Get Started Free <ArrowRight style={{ width: 15, height: 15 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
+                <Link to="/services"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "#fff",
+                    textDecoration: "none", borderRadius: 8, padding: "12px 22px", fontSize: 14, fontWeight: 700,
+                    boxShadow: "0 2px 12px rgba(37,99,235,0.35)", transition: "all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#1d4ed8"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "#2563eb"; e.currentTarget.style.transform = "none"; }}>
+                  Explore Services <ArrowRight size={15} />
                 </Link>
-                <Link to="/residents" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#94a3b8", textDecoration: "none", fontSize: 14, fontWeight: 500 }}>
-                  Meet local guides <ChevronRight style={{ width: 15, height: 15 }} />
+                <Link to="/residents"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#0f172a",
+                    textDecoration: "none", fontSize: 14, fontWeight: 600, border: "1.5px solid #e2e8f0",
+                    borderRadius: 8, padding: "11px 20px", background: "#fff", transition: "all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.background = "#f8fafc"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                  Meet Community Guides <ChevronRight size={15} />
                 </Link>
               </div>
 
-              {/* metrics strip */}
-              <div style={{ display: "flex", gap: 32, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              {/* trust strip */}
+              <div style={{ display: "flex", gap: 28, paddingTop: 24, borderTop: "1px solid #e2e8f0" }}>
                 {[
-                  { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers helped"  },
-                  { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified residents" },
-                  { v: "4.9 ★", l: "Average rating" },
+                  { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers helped"   },
+                  { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified guides"    },
+                  { v: stats ? fmtStat(stats.activeServices)    : "—", l: "Active services"    },
                 ].map(s => (
                   <div key={s.l}>
-                    <div style={{ fontSize: "1.125rem", fontWeight: 800, color: "#fff", lineHeight: 1 }}>{s.v}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{s.l}</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{s.v}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>{s.l}</div>
                   </div>
                 ))}
               </div>
             </motion.div>
 
-            {/* RIGHT — local network panel (30% smaller, no floating chips) */}
-            <motion.div initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ position: "relative" }} className="hero-right">
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 18, padding: 18, backdropFilter: "blur(20px)", boxShadow: "0 20px 56px rgba(0,0,0,0.4)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.07em" }}>Your local network</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#34d399", fontWeight: 700 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", display: "inline-block" }} className="pulse-dot" />
-                    3 online
-                  </span>
-                </div>
-
-                {GUIDES.map(g => (
-                  <motion.div key={g.name} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: g.delay }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 11, marginBottom: 7, background: "rgba(255,255,255,0.05)" }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: g.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                      {g.i}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#fff" }}>{g.name}</span>
-                        <Shield style={{ width: 9, height: 9, color: "#34d399", flexShrink: 0 }} />
-                      </div>
-                      <span style={{ fontSize: 10, color: "#64748b" }}>{g.area}</span>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#34d399" }}>{g.score}</div>
-                      <div style={{ fontSize: 8, color: "#475569", textTransform: "uppercase" }}>trust</div>
-                    </div>
-                  </motion.div>
-                ))}
-
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }}
-                  style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 13px", borderRadius: 11, background: "rgba(37,99,235,0.18)", border: "1px solid rgba(59,130,246,0.28)" }}>
-                  <div>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>Ready to connect?</p>
-                    <p style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Free — no credit card</p>
-                  </div>
-                  <Link to="/register" style={{ background: "#2563eb", color: "#fff", textDecoration: "none", borderRadius: 7, padding: "5px 13px", fontSize: 11, fontWeight: 700 }}>
-                    Join now
-                  </Link>
-                </motion.div>
-              </div>
+            {/* ── RIGHT — journey carousel ── */}
+            <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="hero-right" style={{ position: "relative" }}>
+              <JourneyCarousel />
             </motion.div>
-
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════ JOURNEY CAROUSEL */}
-      <JourneyCarousel />
-
-      {/* ════════════════════════════════════════════ SOCIAL PROOF */}
-      <section style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      {/* ════════════════════════════════════════ SEARCH CARD */}
+      <section style={{ background: "#F8FAFC", padding: "32px 0 0" }}>
         <div className="wrap">
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch" }}>
+          <motion.form onSubmit={go}
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.07)", padding: "6px", display: "flex",
+              flexWrap: "wrap", alignItems: "stretch", gap: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", flex: 1, minWidth: 180 }}>
+              <Search size={15} style={{ color: "#94a3b8", flexShrink: 0 }} />
+              <input value={q} onChange={e => setQ(e.target.value)}
+                placeholder="Search services, clinics, hostels…"
+                style={{ flex: 1, border: "none", outline: "none", fontSize: 14, color: "#0f172a", background: "transparent" }} />
+            </div>
+            <div style={{ width: 1, background: "#f1f5f9", margin: "8px 0" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px" }}>
+              <MapPin size={13} style={{ color: "#94a3b8", flexShrink: 0 }} />
+              <select value={loc} onChange={e => setLoc(e.target.value)}
+                style={{ border: "none", outline: "none", fontSize: 13, color: "#475569",
+                  background: "transparent", cursor: "pointer" }}>
+                <option value="">All Areas</option>
+                {LOCS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div style={{ padding: 6 }}>
+              <button type="submit" style={{ background: "#2563eb", color: "#fff", border: "none",
+                borderRadius: 9, padding: "10px 28px", fontSize: 14, fontWeight: 700,
+                cursor: "pointer", whiteSpace: "nowrap",
+                boxShadow: "0 2px 8px rgba(37,99,235,0.3)" }}>
+                Search
+              </button>
+            </div>
+          </motion.form>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════ STATS STRIP */}
+      <section style={{ background: "#F8FAFC", padding: "48px 0 0" }}>
+        <div className="wrap">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1,
+            background: "#e2e8f0", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}
+            className="stats-strip">
             {[
-              { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers helped",         sub: "across Hyderabad" },
-              { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified community members", sub: "with Aadhaar ID" },
-              { v: stats ? fmtStat(stats.activeServices)    : "—", l: "Trusted services",           sub: "across 3 areas"  },
-              { v: stats ? fmtStat(stats.totalReviews)      : "—", l: "Verified reviews",           sub: "AI-moderated"    },
+              { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers helped",          sub: "across Hyderabad" },
+              { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified community members", sub: "Aadhaar-verified"  },
+              { v: stats ? fmtStat(stats.activeServices)    : "—", l: "Active services",            sub: "across 3 areas"   },
+              { v: stats ? fmtStat(stats.totalReviews)      : "—", l: "Verified reviews",           sub: "AI-moderated"     },
             ].map((s, i) => (
-              <motion.div key={s.l} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
-                style={{ flex: "1 1 200px", padding: "32px 24px", textAlign: "center", borderRight: i < 3 ? "1px solid #e2e8f0" : "none" }}>
-                <div style={{ fontSize: "2rem", fontWeight: 800, color: "#1e40af", lineHeight: 1 }}>{s.v}</div>
+              <motion.div key={s.l}
+                initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: i * 0.07 }}
+                style={{ padding: "28px 24px", textAlign: "center", background: "#fff" }}>
+                <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#2563eb", lineHeight: 1 }}>{s.v}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginTop: 6 }}>{s.l}</div>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>{s.sub}</div>
               </motion.div>
@@ -237,66 +407,38 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════ HOW IT WORKS */}
-      <section style={{ padding: "100px 0", background: "#fff" }}>
+      {/* ════════════════════════════════════════ CATEGORIES */}
+      <section style={{ padding: "80px 0", background: "#F8FAFC" }}>
         <div className="wrap">
-          <div style={{ textAlign: "center", marginBottom: 64 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>How it works</p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.025em", lineHeight: 1.15, margin: 0 }}>
-              From arrival to settled —<br />in four simple steps
-            </h2>
-          </div>
-
-          <div style={{ position: "relative" }}>
-            <div style={{ position: "absolute", top: 32, left: "12.5%", right: "12.5%", height: 2, background: "linear-gradient(90deg, transparent, #dbeafe 15%, #dbeafe 85%, transparent)" }} className="journey-line" />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 0 }} className="journey-grid">
-              {[
-                { icon: "🏙️", step: "01", title: "You arrive",       desc: "New city. Unknown streets. It can feel overwhelming."         },
-                { icon: "🤝", step: "02", title: "Create an account", desc: "Sign up in 2 minutes as newcomer, resident or provider."      },
-                { icon: "🔍", step: "03", title: "Connect & explore", desc: "Match with a verified guide. Browse trusted services."        },
-                { icon: "🏡", step: "04", title: "Feel at home",      desc: "Book services. Chat with guides. Join your community."        },
-              ].map((s, i) => (
-                <motion.div key={s.step} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 20px" }}>
-                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#fff", border: "2px solid #dbeafe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.75rem", marginBottom: 16, position: "relative", zIndex: 1, boxShadow: "0 4px 16px rgba(37,99,235,0.1)" }}>
-                    {s.icon}
-                  </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#93c5fd", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>{s.step}</span>
-                  <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#0f172a", marginBottom: 8, lineHeight: 1.3 }}>{s.title}</h3>
-                  <p style={{ fontSize: "0.8125rem", color: "#64748b", lineHeight: 1.6, maxWidth: 180 }}>{s.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ textAlign: "center", marginTop: 56 }}>
-            <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "#fff", textDecoration: "none", borderRadius: 10, padding: "13px 28px", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 20px rgba(37,99,235,0.35)" }}>
-              Start your journey <ArrowRight style={{ width: 16, height: 16 }} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════ CATEGORIES */}
-      <section style={{ padding: "80px 0", background: "#f8fafc" }}>
-        <div className="wrap">
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 40 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 36 }}>
             <div>
-              <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em" }}>Everything you need, nearby</h2>
-              <p style={{ fontSize: 14, color: "#64748b", marginTop: 6 }}>Verified services across all essential categories</p>
+              <SectionLabel>Browse by category</SectionLabel>
+              <h2 style={{ fontSize: "clamp(1.4rem,2.5vw,2rem)", fontWeight: 800, color: "#0f172a",
+                letterSpacing: "-0.025em", margin: 0 }}>
+                Everything you need, nearby
+              </h2>
             </div>
-            <Link to="/services" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
-              Browse all <ArrowRight style={{ width: 14, height: 14 }} />
+            <Link to="/services" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13,
+              fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+              Browse all <ArrowRight size={14} />
             </Link>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 16 }} className="cats-grid">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 12 }} className="cats-grid">
             {CATS.map((cat, i) => (
-              <motion.div key={cat.label} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}>
-                <Link to={`/services?category=${encodeURIComponent(cat.q)}`} style={{ textDecoration: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "4px 0" }} className="cat-link">
-                  <div style={{ width: 60, height: 60, borderRadius: 18, background: "#fff", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.625rem", transition: "all 0.2s" }} className="cat-icon">
+              <motion.div key={cat.label}
+                initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.04 }}>
+                <Link to={`/services?category=${encodeURIComponent(cat.q)}`}
+                  style={{ textDecoration: "none", display: "flex", flexDirection: "column",
+                    alignItems: "center", gap: 9, padding: "4px 0" }} className="cat-link">
+                  <div style={{ width: 58, height: 58, borderRadius: 14, background: "#fff",
+                    border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: "1.5rem" }} className="cat-icon">
                     {cat.icon}
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#475569", textAlign: "center", lineHeight: 1.3 }}>{cat.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#475569", textAlign: "center" }}>
+                    {cat.label}
+                  </span>
                 </Link>
               </motion.div>
             ))}
@@ -304,18 +446,182 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════ FEATURED SERVICES */}
-      {loading && <section style={{ padding: "80px 0", background: "#fff" }}><div className="wrap"><LoadingSpinner /></div></section>}
+      {/* ════════════════════════════════════════ FEATURES */}
+      <section style={{ padding: "80px 0", background: "#fff", borderTop: "1px solid #f1f5f9" }}>
+        <div className="wrap">
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <SectionLabel>Platform features</SectionLabel>
+            <h2 style={{ fontSize: "clamp(1.5rem,3vw,2.25rem)", fontWeight: 800, color: "#0f172a",
+              letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 auto 16px", maxWidth: 560 }}>
+              Built for trust, designed for newcomers
+            </h2>
+            <p style={{ fontSize: 15, color: "#64748b", maxWidth: 480, margin: "0 auto" }}>
+              Every feature exists to help you settle faster, smarter, and safer.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="feat-grid">
+            {FEATURES.map((f, i) => (
+              <motion.div key={f.title}
+                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.07 }}
+                style={{ background: "#f8fafc", border: "1.5px solid #f1f5f9", borderRadius: 14,
+                  padding: "24px", transition: "all 0.18s", cursor: "default" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(37,99,235,0.07)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: f.bg,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: f.color, marginBottom: 16 }}>
+                  {f.icon}
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{f.title}</h3>
+                <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, margin: 0 }}>{f.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════ HOW IT WORKS */}
+      <section style={{ padding: "80px 0", background: "#F8FAFC", borderTop: "1px solid #f1f5f9" }}>
+        <div className="wrap">
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <SectionLabel>How it works</SectionLabel>
+            <h2 style={{ fontSize: "clamp(1.5rem,3vw,2.25rem)", fontWeight: 800, color: "#0f172a",
+              letterSpacing: "-0.025em", margin: 0 }}>
+              From arrival to settled — four steps
+            </h2>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 0, position: "relative" }} className="journey-grid">
+            {/* connector line */}
+            <div className="journey-line" style={{ position: "absolute", top: 36, left: "12.5%", right: "12.5%",
+              height: 1, background: "linear-gradient(90deg, transparent, #dbeafe 20%, #dbeafe 80%, transparent)" }} />
+            {STEPS.map((s, i) => (
+              <motion.div key={s.n}
+                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center",
+                  textAlign: "center", padding: "0 16px" }}>
+                <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#fff",
+                  border: "2px solid #dbeafe", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: "1.75rem", marginBottom: 16,
+                  position: "relative", zIndex: 1,
+                  boxShadow: "0 4px 16px rgba(37,99,235,0.08)" }}>
+                  {s.icon}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#93c5fd",
+                  letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>
+                  Step {s.n}
+                </span>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{s.title}</h3>
+                <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, maxWidth: 180 }}>{s.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 52 }}>
+            <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8,
+              background: "#0f172a", color: "#fff", textDecoration: "none",
+              borderRadius: 8, padding: "13px 28px", fontSize: 14, fontWeight: 700 }}
+              onMouseEnter={e => e.currentTarget.style.background = "#1e293b"}
+              onMouseLeave={e => e.currentTarget.style.background = "#0f172a"}>
+              Start your journey <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════ COMMUNITY GUIDES */}
+      <section style={{ padding: "80px 0", background: "#fff", borderTop: "1px solid #f1f5f9" }}>
+        <div className="wrap">
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 40 }}>
+            <div>
+              <SectionLabel>Community guides</SectionLabel>
+              <h2 style={{ fontSize: "clamp(1.4rem,2.5vw,2rem)", fontWeight: 800, color: "#0f172a",
+                letterSpacing: "-0.025em", margin: 0 }}>
+                Locals who know the city inside out
+              </h2>
+            </div>
+            <Link to="/residents" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13,
+              fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+              Meet all guides <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }} className="testi-grid">
+            {GUIDES.map((g, i) => (
+              <motion.div key={g.name}
+                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                style={{ background: "#f8fafc", border: "1.5px solid #f1f5f9", borderRadius: 14,
+                  padding: "24px", transition: "all 0.18s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(37,99,235,0.07)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}>
+                {/* header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: g.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 20, fontWeight: 800, flexShrink: 0, position: "relative" }}>
+                    {g.initial}
+                    <span style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14,
+                      borderRadius: "50%", background: "#22c55e", border: "2.5px solid #f8fafc" }} />
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{g.name}</span>
+                      <Shield size={12} style={{ color: "#2563eb" }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{g.area}</span>
+                  </div>
+                </div>
+
+                {/* stats row */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                  {[
+                    { label: "Years here", value: `${g.years} yrs` },
+                    { label: "Newcomers helped", value: g.helped },
+                    { label: "Languages", value: g.lang },
+                    { label: "Response time", value: g.response },
+                  ].map(stat => (
+                    <div key={stat.label} style={{ background: "#fff", border: "1px solid #f1f5f9",
+                      borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{stat.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{stat.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* community badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Pill color="#059669" bg="#f0fdf4">
+                    ✓ Verified Guide
+                  </Pill>
+                  <Link to="/residents"
+                    style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", textDecoration: "none",
+                      display: "flex", alignItems: "center", gap: 4 }}>
+                    View Profile <ChevronRight size={13} />
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════ FEATURED SERVICES */}
       {!loading && svcs.length > 0 && (
-        <section style={{ padding: "80px 0", background: "#fff" }}>
+        <section style={{ padding: "80px 0", background: "#F8FAFC", borderTop: "1px solid #f1f5f9" }}>
           <div className="wrap">
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 40 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 36 }}>
               <div>
-                <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em" }}>Featured Services</h2>
-                <p style={{ fontSize: 14, color: "#64748b", marginTop: 6 }}>Top-rated, verified providers near you</p>
+                <SectionLabel>Featured services</SectionLabel>
+                <h2 style={{ fontSize: "clamp(1.4rem,2.5vw,2rem)", fontWeight: 800, color: "#0f172a",
+                  letterSpacing: "-0.025em", margin: 0 }}>
+                  Top-rated, verified providers near you
+                </h2>
               </div>
-              <Link to="/services" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
-                View all <ArrowRight style={{ width: 14, height: 14 }} />
+              <Link to="/services" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13,
+                fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+                View all <ArrowRight size={14} />
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -324,95 +630,132 @@ export default function HomePage() {
           </div>
         </section>
       )}
+      {loading && (
+        <section style={{ padding: "80px 0", background: "#F8FAFC" }}>
+          <div className="wrap"><LoadingSpinner /></div>
+        </section>
+      )}
 
-      {/* ══════════════════════════════════════ WHY TRUSTBRIDGE */}
-      <section style={{ padding: "100px 0", background: "#fff" }}>
+      {/* ════════════════════════════════════════ TRUST / WHY */}
+      <section style={{ padding: "80px 0", background: "#fff", borderTop: "1px solid #f1f5f9" }}>
         <div className="wrap">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }} className="trust-grid">
-
-            {/* left — feature rows */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }} className="trust-grid">
+            {/* left */}
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Why TrustBridge</p>
-              <h2 style={{ fontSize: "clamp(1.75rem,2.5vw,2.25rem)", fontWeight: 800, color: "#0f172a", lineHeight: 1.2, letterSpacing: "-0.025em", marginBottom: 20 }}>
-                Built on real trust,<br />not just good intentions
+              <SectionLabel>Why TrustBridge</SectionLabel>
+              <h2 style={{ fontSize: "clamp(1.5rem,2.5vw,2.25rem)", fontWeight: 800, color: "#0f172a",
+                lineHeight: 1.2, letterSpacing: "-0.025em", margin: "0 0 16px" }}>
+                Built on real trust, not just good&nbsp;intentions
               </h2>
-              <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.75, marginBottom: 48, maxWidth: 420 }}>
-                Every person on TrustBridge is verified. Every review is moderated.
-                Every trust score is public. Because settling into a new city is stressful enough.
+              <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.75, marginBottom: 40, maxWidth: 420 }}>
+                Every person is verified. Every review is moderated. Every trust score is public —
+                because settling into a new city is hard enough without worrying about scams.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 {[
-                  { Icon: Shield,     title: "Aadhaar-Verified Identities",  desc: "Every resident passes a government ID check before they can help newcomers."      },
-                  { Icon: Zap,        title: "AI-Powered Review Guard",      desc: "Machine learning removes fake reviews before they reach you — ratings are real."  },
-                  { Icon: TrendingUp, title: "Live Trust Scores",            desc: "Transparent ratings show exactly how reliable each guide or provider is."         },
-                  { Icon: Lock,       title: "Private, Secure Messaging",    desc: "All chats stay inside TrustBridge. Your contact details are never shared."        },
+                  { Icon: Shield,     title: "Aadhaar-Verified Identities",  desc: "Every provider passes a government ID check before they can help newcomers." },
+                  { Icon: Zap,        title: "AI-Powered Review Guard",      desc: "ML removes fake reviews before they reach you — ratings are always real." },
+                  { Icon: TrendingUp, title: "Live Trust Scores",            desc: "Transparent ratings show exactly how reliable each guide or provider is." },
+                  { Icon: Lock,       title: "Private, Secure Messaging",    desc: "All chats stay inside TrustBridge. Your contact details are never shared." },
                 ].map((f, i) => (
-                  <motion.div key={f.title} initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                    style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 12, background: "#eff6ff", flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <f.Icon style={{ width: 18, height: 18, color: "#2563eb" }} />
+                  <motion.div key={f.title}
+                    initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }} transition={{ delay: i * 0.07 }}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "#eff6ff",
+                      flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
+                      <f.Icon size={17} style={{ color: "#2563eb" }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>{f.title}</h3>
-                      <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65 }}>{f.desc}</p>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{f.title}</h3>
+                      <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
                     </div>
                   </motion.div>
                 ))}
               </div>
             </div>
 
-            {/* right — trust stat */}
+            {/* right — stat card + checklist */}
             <div>
-              <div style={{ background: "linear-gradient(145deg,#1e3a8a,#2563eb)", borderRadius: 24, padding: "44px 36px", textAlign: "center", marginBottom: 24, boxShadow: "0 20px 60px rgba(37,99,235,0.3)" }}>
-                <div style={{ fontSize: "4rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>98%</div>
-                <p style={{ color: "#bfdbfe", fontSize: 14, marginTop: 10, lineHeight: 1.5 }}>of newcomers say they felt safe<br />within their first week</p>
-                <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 16 }}>
-                  {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 16, height: 16, color: "#fbbf24", fill: "#fbbf24" }} />)}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                style={{ background: "#0f172a", borderRadius: 16, padding: "36px 32px",
+                  textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: "3.5rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>98%</div>
+                <p style={{ color: "#94a3b8", fontSize: 14, marginTop: 10, lineHeight: 1.55 }}>
+                  of newcomers say they felt safe<br />within their first week
+                </p>
+                <div style={{ display: "flex", justifyContent: "center", gap: 3, margin: "16px 0 8px" }}>
+                  {[1,2,3,4,5].map(i => <Star key={i} size={14} style={{ color: "#f59e0b", fill: "#f59e0b" }} />)}
                 </div>
-                <p style={{ color: "#93c5fd", fontSize: 12, marginTop: 6 }}>Based on {stats ? fmtStat(stats.totalReviews) : "—"} verified reviews</p>
-              </div>
+                <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>
+                  Based on {stats ? fmtStat(stats.totalReviews) : "—"} verified reviews
+                </p>
+              </motion.div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {["Every resident is Aadhaar-verified", "AI removes fake reviews automatically", "Your data stays private and secure", "Free to join — no credit card needed", "Available in Bachupally, Miyapur and Secunderabad"].map(pt => (
-                  <div key={pt} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <CheckCircle style={{ width: 16, height: 16, color: "#16a34a", flexShrink: 0 }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+                {[
+                  "Every provider is Aadhaar-verified",
+                  "AI removes fake reviews automatically",
+                  "Your data stays private and secure",
+                  "Free to join — no credit card needed",
+                  "Available in Bachupally, Miyapur & Secunderabad",
+                ].map(pt => (
+                  <div key={pt} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <CheckCircle size={15} style={{ color: "#22c55e", flexShrink: 0 }} />
                     <span style={{ fontSize: 13, color: "#374151" }}>{pt}</span>
                   </div>
                 ))}
               </div>
 
-              <div style={{ marginTop: 32 }}>
-                <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "#fff", textDecoration: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px rgba(37,99,235,0.35)" }}>
-                  Get Started Free <ArrowRight style={{ width: 15, height: 15 }} />
-                </Link>
-              </div>
+              <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8,
+                background: "#2563eb", color: "#fff", textDecoration: "none",
+                borderRadius: 8, padding: "12px 22px", fontSize: 14, fontWeight: 700,
+                boxShadow: "0 2px 12px rgba(37,99,235,0.3)" }}>
+                Get Started Free <ArrowRight size={15} />
+              </Link>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════ TESTIMONIALS */}
-      <section style={{ padding: "100px 0", background: "linear-gradient(150deg,#060c1d 0%,#0d1d42 50%,#071224 100%)" }}>
+      {/* ════════════════════════════════════════ TESTIMONIALS */}
+      <section style={{ padding: "80px 0", background: "#0f172a" }}>
         <div className="wrap">
-          <div style={{ textAlign: "center", marginBottom: 60 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Real stories</p>
-            <h2 style={{ fontSize: "clamp(1.75rem,2.5vw,2.25rem)", fontWeight: 800, color: "#fff", letterSpacing: "-0.025em" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase", color: "#60a5fa",
+              background: "rgba(96,165,250,0.12)", padding: "4px 12px", borderRadius: 999, marginBottom: 16 }}>
+              Real stories
+            </span>
+            <h2 style={{ fontSize: "clamp(1.5rem,3vw,2.25rem)", fontWeight: 800, color: "#fff",
+              letterSpacing: "-0.025em", margin: 0 }}>
               Newcomers who found their footing
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }} className="testi-grid">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="testi-grid">
             {TESTIMONIALS.map((t, i) => (
-              <motion.div key={t.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "32px 28px" }}>
-                <div style={{ display: "flex", gap: 3, marginBottom: 20 }}>
-                  {[1,2,3,4,5].map(s => <Star key={s} style={{ width: 13, height: 13, color: "#fbbf24", fill: "#fbbf24" }} />)}
+              <motion.div key={t.name}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 14, padding: "28px 24px" }}>
+                <div style={{ display: "flex", gap: 3, marginBottom: 16 }}>
+                  {[1,2,3,4,5].map(s => <Star key={s} size={12} style={{ color: "#f59e0b", fill: "#f59e0b" }} />)}
                 </div>
-                <p style={{ fontSize: "0.9375rem", color: "#cbd5e1", lineHeight: 1.75, marginBottom: 28 }}>&ldquo;{t.text}&rdquo;</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: t.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{t.avatar}</div>
+                <p style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.75, marginBottom: 24 }}>
+                  &ldquo;{t.text}&rdquo;
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 12,
+                  paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div style={{ width: 38, height: 38, borderRadius: "50%", background: t.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                    {t.avatar}
+                  </div>
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>{t.name}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>{t.name}</p>
                     <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{t.role}</p>
                   </div>
                 </div>
@@ -422,29 +765,38 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════ FINAL CTA */}
-      <section style={{ padding: "120px 0", background: "#fff" }}>
-        <div className="wrap" style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
+      {/* ════════════════════════════════════════ FINAL CTA */}
+      <section style={{ padding: "96px 0", background: "#fff", borderTop: "1px solid #f1f5f9" }}>
+        <div className="wrap" style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <div style={{ width: 72, height: 72, borderRadius: 20, background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px", boxShadow: "0 8px 32px rgba(37,99,235,0.45)" }}>
-              <Shield style={{ width: 36, height: 36, color: "#fff" }} />
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: "#eff6ff",
+              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+              <Shield size={28} style={{ color: "#2563eb" }} />
             </div>
-            <h2 style={{ fontSize: "clamp(2rem,4vw,3rem)", fontWeight: 900, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", margin: "0 0 20px" }}>
-              Your new city is waiting.<br />
+            <h2 style={{ fontSize: "clamp(1.75rem,4vw,2.75rem)", fontWeight: 900, color: "#0f172a",
+              lineHeight: 1.1, letterSpacing: "-0.03em", margin: "0 0 18px" }}>
+              Your new city is waiting.
+              <br />
               <span style={{ color: "#2563eb" }}>Start with people you can trust.</span>
             </h2>
-            <p style={{ fontSize: 16, color: "#64748b", lineHeight: 1.7, maxWidth: 480, margin: "0 auto 40px" }}>
-              Thousands of newcomers arrived alone and found a community here. Join them — free, verified, and starting right now.
+            <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.7, maxWidth: 440, margin: "0 auto 36px" }}>
+              Thousands of newcomers arrived alone and found a community here.
+              Join them — free, verified, and starting right now.
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-              <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "#fff", textDecoration: "none", borderRadius: 12, padding: "15px 32px", fontSize: 15, fontWeight: 800, boxShadow: "0 6px 24px rgba(37,99,235,0.45)" }}>
-                Get Started Free <ArrowRight style={{ width: 17, height: 17 }} />
+              <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8,
+                background: "#2563eb", color: "#fff", textDecoration: "none",
+                borderRadius: 8, padding: "13px 28px", fontSize: 15, fontWeight: 700,
+                boxShadow: "0 4px 20px rgba(37,99,235,0.35)" }}>
+                Get Started Free <ArrowRight size={16} />
               </Link>
-              <Link to="/services" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#f8fafc", color: "#374151", textDecoration: "none", borderRadius: 12, padding: "15px 32px", fontSize: 15, fontWeight: 700, border: "1.5px solid #e2e8f0" }}>
-                Browse Services
+              <Link to="/services" style={{ display: "inline-flex", alignItems: "center", gap: 7,
+                color: "#0f172a", textDecoration: "none", fontSize: 15, fontWeight: 600,
+                border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "12px 24px",
+                background: "#fff" }}>
+                Browse Services <ChevronRight size={15} />
               </Link>
             </div>
-            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 24 }}>No credit card required · Bachupally · Miyapur · Secunderabad</p>
           </motion.div>
         </div>
       </section>

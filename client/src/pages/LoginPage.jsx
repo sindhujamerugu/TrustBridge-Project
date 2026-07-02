@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, ChevronLeft } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ChevronLeft } from "lucide-react";
+import logoImg from "../assets/logo.png";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
@@ -27,11 +28,8 @@ export default function LoginPage() {
 
       {/* ── minimal auth header ── */}
       <header style={{ height: 56, flexShrink: 0, background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", paddingInline: "clamp(1.25rem,4vw,3rem)", gap: 12, justifyContent: "space-between" }}>
-        <Link to="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Shield style={{ width: 15, height: 15, color: "#fff" }} />
-          </div>
-          <span style={{ fontWeight: 800, fontSize: 16, color: "#0f172a", letterSpacing: "-0.01em" }}>TrustBridge</span>
+        <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+          <img src={logoImg} alt="TrustBridge" style={{ height: 36, width: "auto", objectFit: "contain", display: "block" }} />
         </Link>
         <Link to="/" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#64748b", textDecoration: "none", transition: "color 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.color = "#0f172a"}

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Mail, Lock, Phone, MapPin, Building2, Shield, ChevronLeft, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Phone, MapPin, Building2, ChevronLeft, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import logoImg from "../assets/logo.png";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
@@ -70,11 +71,8 @@ export default function RegisterPage() {
 
       {/* header */}
       <header style={{height:60,background:"#fff",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",paddingInline:"clamp(1.25rem,4vw,3rem)",justifyContent:"space-between"}}>
-        <Link to="/" style={{display:"flex",alignItems:"center",gap:9,textDecoration:"none"}}>
-          <div style={{width:30,height:30,borderRadius:8,background:"#2563eb",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <Shield style={{width:15,height:15,color:"#fff"}}/>
-          </div>
-          <span style={{fontWeight:800,fontSize:16,color:"#0f172a"}}>TrustBridge</span>
+        <Link to="/" style={{display:"flex",alignItems:"center",textDecoration:"none"}}>
+          <img src={logoImg} alt="TrustBridge" style={{height:36,width:"auto",objectFit:"contain",display:"block"}}/>
         </Link>
         <Link to="/" style={{display:"flex",alignItems:"center",gap:5,fontSize:13,fontWeight:600,color:"#64748b",textDecoration:"none"}}>
           <ChevronLeft style={{width:14,height:14}}/> Back to Home

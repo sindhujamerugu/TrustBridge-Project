@@ -2,12 +2,13 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Menu, X, Bell, User, LogOut, Shield, ChevronDown,
+  Menu, X, Bell, User, LogOut, ChevronDown,
   MessageCircle, LayoutDashboard, Settings, HelpCircle,
   Calendar, Search,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { notificationAPI } from "../../services/api";
+import logoImg from "../../assets/logo.png";
 
 const NAV = [
   { to: "/",          label: "Home"         },
@@ -158,18 +159,12 @@ export default function Navbar() {
         }}>
 
           {/* ── Logo ── */}
-          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none", flexShrink: 0 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(37,99,235,0.35)",
-            }}>
-              <Shield style={{ width: 17, height: 17, color: "#fff" }} />
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 16, color: "#0f172a", letterSpacing: "-0.02em", lineHeight: 1 }}>
-              Trust<span style={{ color: "#2563eb" }}>Bridge</span>
-            </span>
+          <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
+            <img
+              src={logoImg}
+              alt="TrustBridge"
+              style={{ height: 40, width: "auto", objectFit: "contain", display: "block" }}
+            />
           </Link>
 
           {/* ── Desktop nav links ── */}
@@ -390,13 +385,12 @@ export default function Navbar() {
 
               {/* drawer header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: "1px solid #f1f5f9" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 9, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(37,99,235,0.3)" }}>
-                    <Shield style={{ width: 14, height: 14, color: "#fff" }} />
-                  </div>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: "#0f172a", letterSpacing: "-0.01em" }}>
-                    Trust<span style={{ color: "#2563eb" }}>Bridge</span>
-                  </span>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <img
+                    src={logoImg}
+                    alt="TrustBridge"
+                    style={{ height: 34, width: "auto", objectFit: "contain", display: "block" }}
+                  />
                 </div>
                 <button onClick={() => setMobileOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                   <X style={{ width: 15, height: 15, color: "#64748b" }} />

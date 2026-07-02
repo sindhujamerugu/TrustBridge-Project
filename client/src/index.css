@@ -228,10 +228,15 @@ label.lbl { display: block; font-size: 0.8125rem; font-weight: 600; color: #3741
   .journey-grid { grid-template-columns: repeat(2,1fr) !important; }
   .journey-line { display: none !important; }
   .cats-grid  { grid-template-columns: repeat(4,1fr) !important; }
+  .feat-grid  { grid-template-columns: 1fr 1fr !important; }
+  .stats-strip { grid-template-columns: 1fr 1fr !important; }
 }
 @media (max-width: 639px) {
   .journey-grid { grid-template-columns: 1fr 1fr !important; }
   .cats-grid    { grid-template-columns: repeat(4,1fr) !important; }
+  .feat-grid    { grid-template-columns: 1fr !important; }
+  .stats-strip  { grid-template-columns: 1fr 1fr !important; }
+  .testi-grid   { grid-template-columns: 1fr !important; }
 }
 
 /* ── Category icon hover ── */

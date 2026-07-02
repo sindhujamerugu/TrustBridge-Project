@@ -1,22 +1,32 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Users, Star, Heart } from "lucide-react";
+import logoImg from "../assets/logo.png";
 import { motion } from "framer-motion";
+import { statsAPI } from "../services/api";
 
-const STATS = [
-  { v: "10,000+", l: "Newcomers Helped" },
-  { v: "500+",    l: "Verified Residents" },
-  { v: "1,200+",  l: "Trusted Services" },
-  { v: "4.9",     l: "Average Rating" },
-];
-
-const TEAM = [
-  { name: "Founder",       role: "CEO & Co-Founder",         letter: "F", color: "#2563eb" },
-  { name: "Tech Lead",     role: "CTO & Co-Founder",          letter: "T", color: "#7c3aed" },
-  { name: "Design Head",   role: "Head of Product Design",    letter: "D", color: "#16a34a" },
-  { name: "Growth Lead",   role: "Head of Community Growth",  letter: "G", color: "#d97706" },
-];
+function fmtStat(n) {
+  if (n === null || n === undefined) return "—";
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k+`;
+  if (n >= 100)  return `${n}+`;
+  return String(n);
+}
 
 export default function AboutPage() {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    statsAPI.get()
+      .then(({ data }) => setStats(data.data))
+      .catch(() => setStats({}));
+  }, []);
+
+  const STATS = [
+    { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers Helped",           sub: "across Hyderabad"  },
+    { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified Community Members", sub: "Aadhaar-verified"  },
+    { v: stats ? fmtStat(stats.activeServices)    : "—", l: "Active Services",             sub: "across 3 areas"   },
+    { v: stats ? fmtStat(stats.totalReviews)      : "—", l: "Verified Reviews",            sub: "AI-moderated"     },
+  ];
+
   return (
     <div style={{ background: "#fff", fontFamily: "Inter,system-ui,sans-serif" }}>
 
@@ -24,14 +34,16 @@ export default function AboutPage() {
       <div style={{ background: "linear-gradient(135deg,#0f172a,#1e3a5f)", padding: "80px 0 60px", textAlign: "center" }}>
         <div className="wrap">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-              <Shield style={{ width: 28, height: 28, color: "#fff" }} />
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <div style={{ display: "inline-flex", background: "#fff", borderRadius: 14, padding: "8px 14px" }}>
+                <img src={logoImg} alt="TrustBridge" style={{ height: 52, width: "auto", objectFit: "contain", display: "block" }} />
+              </div>
             </div>
             <h1 style={{ fontSize: "clamp(1.75rem,4vw,2.75rem)", fontWeight: 900, color: "#fff", letterSpacing: "-0.03em", margin: "0 0 16px" }}>
               About TrustBridge
             </h1>
             <p style={{ fontSize: 16, color: "#94a3b8", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
-              We help newcomers settle into a new city safely, by connecting them with verified local residents and trusted service providers.
+              We help newcomers settle into a new city safely, by connecting them with local residents and trusted service providers.
             </p>
           </motion.div>
         </div>
@@ -41,10 +53,11 @@ export default function AboutPage() {
       <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
         <div className="wrap">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderLeft: "1px solid #e2e8f0" }} className="ab-stats">
-            {STATS.map((s, i) => (
+            {STATS.map((s) => (
               <div key={s.l} style={{ padding: "28px 24px", textAlign: "center", borderRight: "1px solid #e2e8f0" }}>
                 <div style={{ fontSize: 26, fontWeight: 900, color: "#1e40af", lineHeight: 1 }}>{s.v}</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{s.l}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginTop: 5 }}>{s.l}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>{s.sub}</div>
               </div>
             ))}
           </div>
@@ -59,7 +72,7 @@ export default function AboutPage() {
             Make every newcomer feel at home — safely and confidently
           </h2>
           <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.8 }}>
-            Moving to a new city is one of the most challenging experiences a person can face. TrustBridge was built to remove the fear, confusion, and vulnerability that newcomers experience by giving them access to a verified, trusted community of local residents and services — right from day one.
+            Moving to a new city is one of the most challenging experiences a person can face. TrustBridge was built to remove the fear, confusion, and vulnerability that newcomers experience by giving them access to a trusted community of local residents and services — right from day one.
           </p>
         </div>
       </div>
@@ -72,7 +85,7 @@ export default function AboutPage() {
             A world where no one has to feel alone in a new city
           </h2>
           <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.8 }}>
-            We envision a future where every city has a thriving network of verified local guides and trusted services, making relocation safe, efficient, and even joyful. Starting in Hyderabad — and growing across India.
+            We envision a future where every city has a thriving network of local guides and trusted services, making relocation safe, efficient, and even joyful. Starting in Hyderabad — and growing across India.
           </p>
         </div>
       </div>

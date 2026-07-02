@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Shield } from 'lucide-react';
+import logoImg from '../../assets/logo.png';
 
 const COLS = [
   {
@@ -41,11 +41,14 @@ export default function Footer() {
 
           {/* Brand */}
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(37,99,235,0.3)" }}>
-                <Shield style={{ width: 15, height: 15, color: "#fff" }} />
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "inline-flex", background: "#fff", borderRadius: 10, padding: "6px 10px" }}>
+                <img
+                  src={logoImg}
+                  alt="TrustBridge"
+                  style={{ height: 36, width: "auto", objectFit: "contain", display: "block" }}
+                />
               </div>
-              <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", letterSpacing: "-0.01em" }}>TrustBridge</span>
             </div>
             <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.65, maxWidth: 200 }}>
               Helping newcomers settle safely in Hyderabad with verified locals and trusted services.
