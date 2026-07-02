@@ -21,9 +21,12 @@ const COLS = [
   {
     title: "Support",
     links: [
-      { label: "Help Center",    to: "/help"    },
-      { label: "Privacy Policy", to: "/privacy" },
-      { label: "Terms",          to: "/terms"   },
+      { label: "Help Center",              to: "/help"    },
+      { label: "Privacy Policy",           to: "/privacy" },
+      { label: "Terms & Conditions",       to: "/terms"   },
+      { label: "Refund & Cancellation",    to: "/refund"  },
+      { label: "Contact Us",               to: "/contact" },
+      { label: "About Us",                 to: "/about"   },
     ],
   },
 ];
@@ -53,8 +56,12 @@ export default function Footer() {
             <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.65, maxWidth: 200 }}>
               Helping newcomers settle safely in Hyderabad with verified locals and trusted services.
             </p>
+            <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0", lineHeight: 1.5 }}>
+              Owned &amp; Operated by{" "}
+              <strong style={{ color: "#94a3b8", fontWeight: 600 }}>Nasani Ragamala and M. Sindhuja</strong>
+            </p>
             <a href="mailto:trustbridge.platform@gmail.com"
-              style={{ display:"inline-block", marginTop:10, fontSize:11, color:"#94a3b8", textDecoration:"none",
+              style={{ display:"inline-block", marginTop:6, fontSize:11, color:"#94a3b8", textDecoration:"none",
                 transition:"color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.color="#fff"}
               onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
@@ -87,9 +94,12 @@ export default function Footer() {
       {/* Bottom bar */}
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <div className="wrap" style={{ paddingTop: 18, paddingBottom: 18, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-          <span style={{ fontSize: 12, color: "#475569" }}>© {new Date().getFullYear()} TrustBridge. All rights reserved.</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {[{l:"Privacy Policy",to:"/privacy"},{l:"Terms",to:"/terms"},{l:"Help",to:"/help"}].map(({l,to}) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#475569" }}>© {new Date().getFullYear()} TrustBridge. All rights reserved.</span>
+            <span style={{ fontSize: 11, color: "#374151" }}>Owned &amp; Operated by <strong style={{ color: "#475569" }}>Nasani Ragamala and M. Sindhuja</strong> · Hanamkonda, Telangana, India</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            {[{l:"Privacy Policy",to:"/privacy"},{l:"Terms",to:"/terms"},{l:"Refund Policy",to:"/refund"},{l:"Contact",to:"/contact"}].map(({l,to}) => (
               <Link key={l} to={to} style={{ fontSize: 12, color: "#475569", textDecoration: "none", transition: "color 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#94a3b8"; }}
                 onMouseLeave={e => { e.currentTarget.style.color = "#475569"; }}>

@@ -27,6 +27,7 @@ import ContactPage         from './pages/ContactPage';
 import CareersPage         from './pages/CareersPage';
 import PrivacyPage         from './pages/PrivacyPage';
 import TermsPage           from './pages/TermsPage';
+import RefundPage          from './pages/RefundPage';
 
 import NewcomerDashboard   from './pages/dashboard/NewcomerDashboard';
 import ResidentDashboard   from './pages/dashboard/ResidentDashboard';
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="/help"            element={<HelpPage />} />
               <Route path="/privacy"         element={<PrivacyPage />} />
               <Route path="/terms"           element={<TermsPage />} />
+              <Route path="/refund"          element={<RefundPage />} />
 
               {/* Protected */}
               <Route path="/chat"            element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />

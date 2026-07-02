@@ -45,6 +45,15 @@ export default function AboutPage() {
             <p style={{ fontSize: 16, color: "#94a3b8", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
               We help newcomers settle into a new city safely, by connecting them with local residents and trusted service providers.
             </p>
+            {/* Legal ownership — required for payment gateway KYC */}
+            <p style={{ fontSize: 13, color: "#64748b", marginTop: 16 }}>
+              Owned &amp; Operated by{" "}
+              <strong style={{ color: "#93c5fd", fontWeight: 700 }}>Nasani Ragamala and M. Sindhuja</strong>
+              {" "}·{" "}
+              <a href="mailto:trustbridge.platform@gmail.com" style={{ color: "#60a5fa", textDecoration: "none" }}>
+                trustbridge.platform@gmail.com
+              </a>
+            </p>
           </motion.div>
         </div>
       </div>

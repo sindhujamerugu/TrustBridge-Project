@@ -132,7 +132,7 @@ export default function ContactPage() {
             {[
               { icon:Mail,    title:"Email Support",   value:SUPPORT_EMAIL,              sub:"Response within 24–48 business hours", href:`mailto:${SUPPORT_EMAIL}` },
               { icon:Clock,   title:"Support Hours",   value:"9:00 AM – 6:00 PM IST",    sub:"Monday to Saturday" },
-              { icon:MapPin,  title:"Service Area",    value:"Hyderabad, Telangana",      sub:"Bachupally · Miyapur · Secunderabad" },
+              { icon:MapPin,  title:"Business Location", value:"Hyderabad, Telangana, India", sub:"Owned & Operated by Nasani Ragamala and M. Sindhuja" },
               { icon:Shield,  title:"Verified Platform",value:"AI-powered trust system", sub:"Aadhaar verification · Fake review detection · Secure payments" },
             ].map(c => (
               <motion.div key={c.title} initial={{opacity:0,y:6}} animate={{opacity:1,y:0}}
