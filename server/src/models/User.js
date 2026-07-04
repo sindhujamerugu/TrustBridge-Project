@@ -21,6 +21,17 @@ const userSchema = new mongoose.Schema(
     refreshToken: { type: String, select: false },
     lastLogin: Date,
     deviceFingerprint: String,
+    settings: {
+      notifications: {
+        email:     { type: Boolean, default: true  },
+        push:      { type: Boolean, default: true  },
+        community: { type: Boolean, default: false },
+      },
+      privacy: {
+        profileVisible: { type: Boolean, default: true },
+        openMessaging:  { type: Boolean, default: true },
+      },
+    },
   },
   { timestamps: true }
 );

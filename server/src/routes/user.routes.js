@@ -116,4 +116,53 @@ router.get('/residents/:id', asyncHandler(async (req, res) => {
   res.json({ success: true, data: profile });
 }));
 
+// ── GET user settings ─────────────────────────────────────────────────────────
+router.get('/me/settings', protect, asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select('settings');
+  const defaults = {
+    notifications: { email: true, push: true, community: false },
+    privacy:       { profileVisible: true, openMessaging: true },
+  };
+  const settings = {
+    notifications: { ...defaults.notifications, ...user?.settings?.notifications?.toObject?.() ?? user?.settings?.notifications },
+    privacy:       { ...defaults.privacy,       ...user?.settings?.privacy?.toObject?.()       ?? user?.settings?.privacy       },
+  };
+  res.json({ success: true, data: settings });
+}));
+
+// ── PUT user settings ─────────────────────────────────────────────────────────
+router.put('/me/settings', protect, asyncHandler(async (req, res) => {
+  const { notifications, privacy } = req.body;
+  const update = {};
+  if (notifications) {
+    if (notifications.email     !== undefined) update['settings.notifications.email']     = notifications.email;
+    if (notifications.push      !== undefined) update['settings.notifications.push']      = notifications.push;
+    if (notifications.community !== undefined) update['settings.notifications.community'] = notifications.community;
+  }
+  if (privacy) {
+    if (privacy.profileVisible !== undefined) update['settings.privacy.profileVisible'] = privacy.profileVisible;
+    if (privacy.openMessaging  !== undefined) update['settings.privacy.openMessaging']  = privacy.openMessaging;
+  }
+  const user = await User.findByIdAndUpdate(req.user._id, { $set: update }, { new: true }).select('settings');
+  res.json({ success: true, data: user.settings });
+}));
+
+// ── PUT change password ───────────────────────────────────────────────────────
+router.put('/me/change-password', protect, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) throw new AppError('Both current and new password are required', 400);
+  if (newPassword.length < 8) throw new AppError('New password must be at least 8 characters', 400);
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user) throw new AppError('User not found', 404);
+
+  const valid = await user.comparePassword(currentPassword);
+  if (!valid) throw new AppError('Current password is incorrect', 401);
+
+  user.password = newPassword; // pre-save hook hashes it
+  await user.save();
+
+  res.json({ success: true, message: 'Password updated successfully' });
+}));
+
 export default router;

@@ -70,8 +70,10 @@ export const userAPI = {
   updateCommunityProfile: (data) => api.put('/users/me/community-profile', data),
   getResidents: (params) => api.get('/users/residents', { params }),
   getResident: (id) => api.get(`/users/residents/${id}`),
-  // Newcomers live in User collection directly (no separate profile)
   getNewcomers: (params) => api.get('/users/newcomers', { params }),
+  getSettings: () => api.get('/users/me/settings'),
+  updateSettings: (data) => api.put('/users/me/settings', data),
+  changePassword: (data) => api.put('/users/me/change-password', data),
 };
 
 export const serviceAPI = {
