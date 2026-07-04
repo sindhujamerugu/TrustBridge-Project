@@ -5,6 +5,7 @@ import { User, Mail, Lock, Phone, MapPin, Building2, ChevronLeft, ArrowRight, Ch
 import logoImg from "../assets/logo.png";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import GoogleSignInButton from "../components/ui/GoogleSignInButton";
 
 const ROLES = [
   {
@@ -231,7 +232,14 @@ export default function RegisterPage() {
                       );
                     })()}
                   </form>
-                  <p style={{textAlign:"center",fontSize:13,color:"#64748b",marginTop:20}}>
+                  {/* Google sign-in divider */}
+                  <div style={{ display:"flex", alignItems:"center", gap:12, margin:"20px 0 14px" }}>
+                    <div style={{ flex:1, height:1, background:"#e2e8f0" }} />
+                    <span style={{ fontSize:12, color:"#94a3b8", fontWeight:500, whiteSpace:"nowrap" }}>or sign up with</span>
+                    <div style={{ flex:1, height:1, background:"#e2e8f0" }} />
+                  </div>
+                  <GoogleSignInButton role={role || "newcomer"} label="Continue with Google" />
+                  <p style={{textAlign:"center",fontSize:13,color:"#64748b",marginTop:16}}>
                     Already have an account? <Link to="/login" style={{color:"#2563eb",fontWeight:700,textDecoration:"none"}}>Sign In</Link>
                   </p>
                 </div>

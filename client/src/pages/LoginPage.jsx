@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, ChevronLeft } from "lucide-react";
 import logoImg from "../assets/logo.png";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import GoogleSignInButton from "../components/ui/GoogleSignInButton";
 
 const DASH = { newcomer:"/dashboard/newcomer", resident:"/dashboard/resident", provider:"/dashboard/provider", admin:"/dashboard/admin" };
 
@@ -181,6 +182,14 @@ export default function LoginPage() {
                   {loading ? "Signing in…" : <><span>Sign In</span><ArrowRight style={{ width: 15, height: 15 }} /></>}
                 </button>
               </form>
+
+              {/* Google sign-in divider */}
+              <div style={{ display:"flex", alignItems:"center", gap:12, margin:"20px 0 14px" }}>
+                <div style={{ flex:1, height:1, background:"#e2e8f0" }} />
+                <span style={{ fontSize:12, color:"#94a3b8", fontWeight:500, whiteSpace:"nowrap" }}>or continue with</span>
+                <div style={{ flex:1, height:1, background:"#e2e8f0" }} />
+              </div>
+              <GoogleSignInButton role="newcomer" label="Continue with Google" />
 
               {/* signup link */}
               <p style={{ textAlign: "center", fontSize: 12, color: "#64748b", marginTop: 20, marginBottom: 0 }}>

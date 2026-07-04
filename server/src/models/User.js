@@ -5,7 +5,10 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 8, select: false },
+    password: { type: String, minlength: 8, select: false }, // not required for Google users
+    authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
+    googleId: { type: String, sparse: true },
+    profilePicture: { type: String, default: '' },
     phone: { type: String, trim: true },
     role: {
       type: String,
@@ -42,6 +45,7 @@ userSchema.pre('save', async function () {
 });
 
 userSchema.methods.comparePassword = async function (candidate) {
+  if (!this.password) return false; // Google-only accounts have no password
   return bcrypt.compare(candidate, this.password);
 };
 

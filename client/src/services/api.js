@@ -57,6 +57,7 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout', { refreshToken: localStorage.getItem('refreshToken') }),
+  googleAuth: (credential, role) => api.post('/auth/google', { credential, role }),
 };
 
 export const statsAPI = {

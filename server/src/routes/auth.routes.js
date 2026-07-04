@@ -1,4 +1,5 @@
 import express from 'express';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import ResidentProfile from '../models/ResidentProfile.js';
 import ProviderProfile from '../models/ProviderProfile.js';
@@ -7,6 +8,78 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { AppError } from '../utils/AppError.js';
 
 const router = express.Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ── Google Sign-In ────────────────────────────────────────────────────────────
+router.post('/google', asyncHandler(async (req, res) => {
+  const { credential, role = 'newcomer' } = req.body;
+  if (!credential) throw new AppError('Google credential is required', 400);
+
+  // Verify the ID token with Google
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  const { sub: googleId, email, name, picture, email_verified } = payload;
+
+  if (!email_verified) throw new AppError('Google account email is not verified', 400);
+
+  // Find existing user by googleId or email
+  let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+  if (user) {
+    // Link Google account to existing local account if not already linked
+    if (!user.googleId) {
+      user.googleId     = googleId;
+      user.authProvider = 'google';
+      if (picture && !user.avatar) user.avatar = picture;
+      user.isEmailVerified = true;
+    }
+    if (!user.isActive) throw new AppError('Account deactivated', 403);
+  } else {
+    // Create new user — default role newcomer, can be overridden by client
+    const validRole = ['newcomer', 'resident', 'provider'].includes(role) ? role : 'newcomer';
+    user = await User.create({
+      name,
+      email,
+      googleId,
+      authProvider: 'google',
+      profilePicture: picture || '',
+      avatar: picture || '',
+      role: validRole,
+      isEmailVerified: true,
+      city: 'Hyderabad',
+    });
+    // Create matching profile
+    if (validRole === 'resident') {
+      await ResidentProfile.create({ user: user._id, area: '', connectionToArea: 'local_resident' });
+    } else if (validRole === 'provider') {
+      await ProviderProfile.create({
+        user: user._id, fullName: name,
+        businessName: `${name}'s Business`, phone: '', address: '',
+      });
+    }
+  }
+
+  user.lastLogin = new Date();
+  const { accessToken, refreshToken } = generateTokens(user._id);
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user._id, name: user.name, email: user.email,
+        role: user.role, location: user.location,
+        avatar: user.avatar || user.profilePicture,
+      },
+      accessToken,
+      refreshToken,
+    },
+  });
+}));
 
 router.post('/register', asyncHandler(async (req, res) => {
   const { name, email, password, role, phone, location, city } = req.body;

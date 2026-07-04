@@ -56,8 +56,17 @@ export const AuthProvider = ({ children }) => {
     setProfile(null);
   };
 
+  const loginWithGoogle = async (credential, role) => {
+    const { data } = await authAPI.googleAuth(credential, role);
+    localStorage.setItem('accessToken', data.data.accessToken);
+    localStorage.setItem('refreshToken', data.data.refreshToken);
+    setUser(data.data.user);
+    try { await loadUser(); } catch { /* non-fatal */ }
+    return data.data.user;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, register, logout, loadUser, setProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, register, loginWithGoogle, logout, loadUser, setProfile }}>
       {children}
     </AuthContext.Provider>
   );
