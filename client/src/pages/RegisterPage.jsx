@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Mail, Lock, Phone, MapPin, Building2, ChevronLeft, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Phone, MapPin, Building2, ChevronLeft, ArrowRight, Check } from "lucide-react";
 import logoImg from "../assets/logo.png";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import GoogleSignInButton from "../components/ui/GoogleSignInButton";
+import { PasswordField, ConfirmPasswordField, isPasswordValid } from "../components/ui/PasswordField";
 
 const ROLES = [
   {
@@ -33,7 +34,7 @@ const DASH = { newcomer:"/dashboard/newcomer", resident:"/dashboard/resident", p
 export default function RegisterPage() {
   const [step, setStep]   = useState(1);
   const [role, setRole]   = useState("");
-  const [form, setForm]   = useState({ name:"", email:"", password:"", phone:"", location:"", businessName:"", connection:"" });
+  const [form, setForm]   = useState({ name:"", email:"", password:"", confirm:"", phone:"", location:"", businessName:"", connection:"" });
   const [loading, setLd]  = useState(false);
   const { register } = useAuth();
   const nav = useNavigate();
@@ -42,10 +43,12 @@ export default function RegisterPage() {
   const submit = async (e) => {
     e.preventDefault();
     if (loading) return;
-    // Client-side password guard
-    const pwd = form.password;
-    if (pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
-      toast.error("Password must be at least 8 characters and contain both letters and numbers.");
+    if (!isPasswordValid(form.password)) {
+      toast.error("Please satisfy all password requirements.");
+      return;
+    }
+    if (form.password !== form.confirm) {
+      toast.error("Passwords do not match.");
       return;
     }
     setLd(true);
@@ -174,14 +177,8 @@ export default function RegisterPage() {
                         <FieldBox key={key} label={label} Icon={Icon} type={type} value={form[key]} onChange={v=>upd(key,v)} placeholder={ph} required={req}/>
                       ))}
                     </div>
-                    <PasswordBox value={form.password} onChange={v=>upd("password",v)}/>
-                    {/* Inline error — shown only after user has typed something invalid */}
-                    {form.password.length > 0 && (form.password.length < 8 || !/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password)) && (
-                      <p style={{fontSize:12,color:"#dc2626",margin:"-8px 0 0",display:"flex",alignItems:"center",gap:5}}>
-                        <span>⚠️</span> Password must be at least 8 characters and contain both letters and numbers.
-                      </p>
-                    )}
-                    <PhoneBox value={form.phone} onChange={v=>upd("phone",v)}/>
+                    <PasswordField value={form.password} onChange={v=>upd("password",v)}/>
+                    <ConfirmPasswordField value={form.confirm} password={form.password} onChange={v=>upd("confirm",v)}/>
                     {/* Location dropdown */}
                     <div>
                       <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:6}}>Location</label>
@@ -214,9 +211,7 @@ export default function RegisterPage() {
                       <FieldBox label="Business Name" Icon={Building2} value={form.businessName} onChange={v=>upd("businessName",v)} placeholder="Your business name" required/>
                     )}
                     {(() => {
-                      const pwdOk = form.password.length >= 8 &&
-                        /[a-zA-Z]/.test(form.password) &&
-                        /[0-9]/.test(form.password);
+                      const pwdOk = isPasswordValid(form.password) && form.password === form.confirm && form.confirm.length > 0;
                       const btnDisabled = loading || !pwdOk;
                       return (
                         <button type="submit" disabled={btnDisabled}
@@ -253,74 +248,6 @@ export default function RegisterPage() {
         @media(max-width:767px){.role-grid{grid-template-columns:1fr !important;}.form-grid{grid-template-columns:1fr !important;}}
         @media(min-width:768px) and (max-width:1023px){.role-grid{grid-template-columns:1fr 1fr !important;}}
       `}</style>
-    </div>
-  );
-}
-
-function PasswordBox({ value, onChange }) {
-  const [focused, setFocused] = useState(false);
-  const [show,    setShow]    = useState(false);
-
-  const hasMin    = value.length >= 8;
-  const hasLetter = /[a-zA-Z]/.test(value);
-  const hasNumber = /[0-9]/.test(value);
-
-  const inputStyle = {
-    width:"100%", height:52, paddingLeft:42, paddingRight:46,
-    border:`1.5px solid ${focused?"#2563eb":"#e2e8f0"}`,
-    boxShadow: focused?"0 0 0 3px rgba(37,99,235,0.1)":"none",
-    borderRadius:11, fontSize:14, color:"#0f172a", background:"#fff",
-    outline:"none", transition:"all 0.15s", boxSizing:"border-box",
-  };
-
-  return (
-    <div>
-      <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:6}}>Password</label>
-      <div style={{position:"relative"}}>
-        <Lock style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",
-          width:15,height:15,color:"#94a3b8",pointerEvents:"none"}}/>
-        <input
-          type={show?"text":"password"}
-          value={value}
-          onChange={e=>onChange(e.target.value)}
-          required
-          placeholder="Create a strong password"
-          autoComplete="new-password"
-          onFocus={()=>setFocused(true)}
-          onBlur={()=>setFocused(false)}
-          style={inputStyle}
-        />
-        <button type="button" onClick={()=>setShow(s=>!s)}
-          style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
-            background:"none",border:"none",cursor:"pointer",padding:4,
-            color:"#94a3b8",display:"flex",alignItems:"center"}}>
-          {show
-            ? <EyeOff style={{width:16,height:16}}/>
-            : <Eye    style={{width:16,height:16}}/>}
-        </button>
-      </div>
-      {/* Guidance — show once user starts typing */}
-      {value.length > 0 && (
-        <div style={{display:"flex",gap:14,marginTop:8,flexWrap:"wrap"}}>
-          {[
-            {ok:hasMin,    text:"Min. 8 characters"},
-            {ok:hasLetter, text:"Contains letters"},
-            {ok:hasNumber, text:"Contains numbers"},
-          ].map(({ok,text})=>(
-            <span key={text} style={{display:"flex",alignItems:"center",gap:4,
-              fontSize:11,fontWeight:600,
-              color:ok?"#16a34a":"#94a3b8",transition:"color 0.2s"}}>
-              <span style={{fontSize:12}}>{ok?"✓":"○"}</span> {text}
-            </span>
-          ))}
-        </div>
-      )}
-      {/* Static hint when field is empty */}
-      {value.length === 0 && (
-        <p style={{fontSize:11,color:"#94a3b8",margin:"6px 0 0"}}>
-          Min. 8 characters · must contain letters and numbers
-        </p>
-      )}
     </div>
   );
 }

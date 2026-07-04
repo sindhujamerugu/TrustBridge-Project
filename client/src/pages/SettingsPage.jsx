@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Lock, Bell, Shield, Eye, ChevronRight, Loader2 } from "lucide-react";
+import { Lock, Bell, Shield, ChevronRight, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { userAPI } from "../services/api";
+import { PasswordField, ConfirmPasswordField, isPasswordValid } from "../components/ui/PasswordField";
 
 /* ── Toggle row — auto-saves on change ── */
 function ToggleRow({ label, sublabel, checked, saving, onChange }) {
@@ -57,7 +58,7 @@ export default function SettingsPage() {
   const [notifs,   setNotifs]   = useState({ email:true, push:true, community:false });
   const [privacy,  setPrivacy]  = useState({ profileVisible:true, openMessaging:true });
   const [saving,   setSaving]   = useState({});   // { key: true } while a single toggle is saving
-  const [pwd,      setPwd]      = useState({ current:"", next:"", confirm:"" });
+  const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
   const [pwdSaving,setPwdSaving]= useState(false);
 
   if (!user) { nav("/login"); return null; }
@@ -110,7 +111,7 @@ export default function SettingsPage() {
   const handlePwdChange = async (e) => {
     e.preventDefault();
     if (!pwd.current.trim()) { toast.error("Please enter your current password."); return; }
-    if (pwd.next.length < 8) { toast.error("New password must be at least 8 characters."); return; }
+    if (!isPasswordValid(pwd.next)) { toast.error("Please satisfy all password requirements."); return; }
     if (pwd.next !== pwd.confirm) { toast.error("Passwords do not match."); return; }
     setPwdSaving(true);
     try {
@@ -192,34 +193,57 @@ export default function SettingsPage() {
                 Keep your account secure by updating your password regularly.
               </p>
               <form onSubmit={handlePwdChange} style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                {[
-                  { label:"Current Password", key:"current" },
-                  { label:"New Password (min 8 chars)", key:"next" },
-                  { label:"Confirm New Password", key:"confirm" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600,
-                      color:"#374151", marginBottom:6 }}>{f.label}</label>
-                    <input
-                      type="password"
-                      value={pwd[f.key]}
-                      onChange={e => setPwd({ ...pwd, [f.key]: e.target.value })}
-                      disabled={pwdSaving}
-                      style={{ width:"100%", padding:"10px 14px", border:"1.5px solid #e2e8f0",
-                        borderRadius:9, fontSize:14, fontFamily:"inherit", outline:"none",
-                        boxSizing:"border-box", transition:"border-color 0.15s",
-                        opacity: pwdSaving ? 0.6 : 1 }}
-                      onFocus={e => e.target.style.borderColor = "#2563eb"}
-                      onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                    />
-                  </div>
-                ))}
-                <button type="submit" disabled={pwdSaving}
+                {/* Current password — plain field, no rules */}
+                <div>
+                  <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#374151", marginBottom:6 }}>
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={pwd.current}
+                    onChange={e => setPwd({ ...pwd, current: e.target.value })}
+                    disabled={pwdSaving}
+                    placeholder="Enter your current password"
+                    autoComplete="current-password"
+                    style={{ width:"100%", padding:"10px 14px", border:"1.5px solid #e2e8f0",
+                      borderRadius:9, fontSize:14, fontFamily:"inherit", outline:"none",
+                      boxSizing:"border-box", transition:"border-color 0.15s",
+                      opacity: pwdSaving ? 0.6 : 1 }}
+                    onFocus={e => e.target.style.borderColor = "#2563eb"}
+                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                  />
+                </div>
+
+                {/* New password with full validation */}
+                <PasswordField
+                  value={pwd.next}
+                  onChange={v => setPwd({ ...pwd, next: v })}
+                  label="New Password"
+                  placeholder="Create a new password"
+                  compact
+                />
+
+                {/* Confirm new password */}
+                <ConfirmPasswordField
+                  value={pwd.confirm}
+                  password={pwd.next}
+                  onChange={v => setPwd({ ...pwd, confirm: v })}
+                  label="Confirm New Password"
+                  placeholder="Re-enter your new password"
+                />
+
+                <button type="submit"
+                  disabled={pwdSaving || !pwd.current.trim() || !isPasswordValid(pwd.next) || pwd.next !== pwd.confirm}
                   style={{ display:"flex", alignItems:"center", gap:7,
                     padding:"10px 20px", borderRadius:9,
-                    background: pwdSaving ? "#93c5fd" : "#2563eb",
-                    color:"white", border:"none", fontSize:13, fontWeight:700,
-                    cursor: pwdSaving ? "not-allowed" : "pointer", alignSelf:"flex-start" }}>
+                    background: (pwdSaving || !pwd.current.trim() || !isPasswordValid(pwd.next) || pwd.next !== pwd.confirm)
+                      ? "#e2e8f0" : "#2563eb",
+                    color: (pwdSaving || !pwd.current.trim() || !isPasswordValid(pwd.next) || pwd.next !== pwd.confirm)
+                      ? "#94a3b8" : "white",
+                    border:"none", fontSize:13, fontWeight:700,
+                    cursor: (pwdSaving || !pwd.current.trim() || !isPasswordValid(pwd.next) || pwd.next !== pwd.confirm)
+                      ? "not-allowed" : "pointer",
+                    alignSelf:"flex-start", transition:"all 0.15s" }}>
                   {pwdSaving && <Loader2 size={13} style={{ animation:"spin 1s linear infinite" }} />}
                   {pwdSaving ? "Updating…" : "Update Password"}
                 </button>
