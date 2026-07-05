@@ -90,20 +90,31 @@ function scoreNameCandidate(cleaned){
 // ── collectNameCandidates ─────────────────────────────────────────────────────
 function collectNameCandidates(raw){
   const cands=[];
+  // 1. Explicit "Name:" label
   const lm=raw.match(/(?:name)\s*[:\-]\s*([A-Za-z][A-Za-z\s]{2,40})/i);
   if(lm?.[1]) cands.push({text:lm[1].trim(),source:'label'});
+  // 2. Line-by-line — trim each line first so trailing \r or spaces don't break the test
   for(const line of raw.split('\n').map(l=>l.trim()).filter(Boolean)){
     if(line.length<3||line.length>60) continue;
     if(/^\d/.test(line)) continue;
+    // Allow letters and spaces only (trimmed, so no \r issues)
     if(!/^[A-Za-z][A-Za-z\s]{2,55}$/.test(line)) continue;
     cands.push({text:line,source:'line'});
   }
+  // 3. Title-case runs before the Aadhaar number
   const idx=raw.search(/\d{4}[\s\-]?\d{4}[\s\-]?\d{4}/);
   if(idx>20){
     const before=raw.slice(Math.max(0,idx-200),idx);
     for(const m of before.matchAll(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/g))
       cands.push({text:m[1].trim(),source:'titleCase'});
   }
+  // 4. Title-case runs anywhere in the full text (catches names after the number)
+  for(const m of raw.matchAll(/([A-Z][a-z]{1,}(?:\s+[A-Z][a-z]{1,})+)/g)){
+    const t=m[1].trim();
+    if(t.length>=5&&t.length<=50&&!NAME_SKIP.test(t))
+      cands.push({text:t,source:'titleCaseAny'});
+  }
+  // 5. After "India" line pattern
   const aim=raw.match(/india\s*\n\s*([A-Za-z][A-Za-z\s]{2,40})\n/i);
   if(aim?.[1]) cands.push({text:aim[1].trim(),source:'afterIndia'});
   return cands;
@@ -325,8 +336,10 @@ async function runOCR(buf,docType){
     catch(e){console.warn('[DocVerify] Google Vision failed:',e.message);}
   }
   if(PROVIDER==='simulation')return{text:'',confidence:0,provider:'simulation'};
-  // Wrap entire tesseractOCR in a 90s safety net
-  return withTimeout(tesseractOCR(buf,docType), 90000, 'tesseractOCR total');
+  // Run tesseractOCR directly — both passes are awaited inside it.
+  // Do NOT wrap in withTimeout here; the outer safety timeout would fire before
+  // Pass 2 completes, discarding valid OCR results.
+  return tesseractOCR(buf,docType);
 }
 
 // ── Per-document verification ─────────────────────────────────────────────────

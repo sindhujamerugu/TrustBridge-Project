@@ -312,6 +312,7 @@ router.post('/:id/documents', protect, authorize('provider'), uploadFields, asyn
       workflowStatus:                    'verifying',
       'docVerification.score':           0,
       'docVerification.status':          'pending',
+      'docVerification.startedAt':       new Date(),
       'docVerification.currentStage':    'Preparing documents for analysis…',
       'docVerification.failureReasons':  [],
       'docVerification.documentResults': {},
@@ -345,7 +346,8 @@ async function runDocVerification(serviceId, docBuffers, docMimes, profile) {
     businessName: profile?.businessName || '',
   };
 
-  console.log(`[DocVerify] Starting for service ${serviceId} — docs: ${Object.keys(docBuffers).join(', ')}`);
+  const startMs = Date.now();
+  console.log(`[DocVerify] ▶ START service=${serviceId} docs=${Object.keys(docBuffers).join(',')} at=${new Date().toISOString()}`);
   console.log(`[DocVerify] Provider: "${providerInfo.name}" / business: "${providerInfo.businessName}"`);
   console.log(`[DocVerify] OCR_PROVIDER=${process.env.OCR_PROVIDER || 'tesseract'}`);
 
@@ -382,7 +384,7 @@ async function runDocVerification(serviceId, docBuffers, docMimes, profile) {
       },
     });
 
-    console.log(`[DocVerify] ✓ Done — level=${verifyResult.verificationLevel} identityPassed=${verifyResult.identityPassed} businessPassed=${verifyResult.businessPassed}`);
+    console.log(`[DocVerify] ✓ DONE service=${serviceId} elapsed=${((Date.now()-startMs)/1000).toFixed(1)}s level=${verifyResult.verificationLevel} identityPassed=${verifyResult.identityPassed}`);
   } catch (err) {
     console.error('[DocVerify] Fatal error:', err.message);
     console.error('[DocVerify] Stack:', err.stack);
@@ -404,11 +406,81 @@ async function runDocVerification(serviceId, docBuffers, docMimes, profile) {
 router.get('/:id/verification-status', protect, authorize('provider'), asyncHandler(async (req, res) => {
   const service = await Service.findOne({ _id: req.params.id, provider: req.user._id });
   if (!service) throw new AppError('Service not found', 404);
+
+  const ws  = service.workflowStatus;
+  const dv  = service.docVerification;
+  const now = Date.now();
+
+  // Detect a stale verification job — happens when the server process was killed
+  // mid-OCR (Render dyno restart, OOM, etc.) while workflowStatus is still 'verifying'.
+  // If the job has been 'pending'/'verifying' for more than 5 minutes with no checkedAt,
+  // and we still have the original document URLs, auto-retrigger OCR.
+  const STALE_MS = 5 * 60 * 1000; // 5 minutes
+  const startedAt = dv?.startedAt ? new Date(dv.startedAt).getTime() : null;
+  const isStale = ws === 'verifying'
+    && dv?.status === 'pending'
+    && !dv?.checkedAt
+    && startedAt
+    && (now - startedAt) > STALE_MS;
+
+  if (isStale) {
+    console.log(`[DocVerify] Stale verification detected for service ${service._id} — re-triggering OCR`);
+
+    // Rebuild buffers from stored Cloudinary URLs
+    const DOC_TYPES = ['aadhaar', 'pan', 'gst', 'businessLicense', 'registrationCert'];
+    const docBuffers = {}, docMimes = {};
+    let hasDoc = false;
+
+    for (const docType of DOC_TYPES) {
+      const doc = service.documents?.[docType];
+      if (!doc?.url || doc.url.startsWith('dev-placeholder')) continue;
+      try {
+        const { data } = await (await import('axios')).default.get(doc.url, { responseType: 'arraybuffer', timeout: 20000 });
+        docBuffers[docType] = Buffer.from(data);
+        docMimes[docType]   = 'image/jpeg';
+        hasDoc = true;
+        console.log(`[DocVerify] Re-fetched ${docType} from ${doc.url} — ${docBuffers[docType].length} bytes`);
+      } catch (e) {
+        console.warn(`[DocVerify] Could not re-fetch ${docType}:`, e.message);
+      }
+    }
+
+    if (hasDoc) {
+      // Reset stage so frontend knows a fresh run started
+      await Service.findByIdAndUpdate(service._id, {
+        'docVerification.currentStage': 'Re-running AI verification (server restarted)…',
+        'docVerification.startedAt':    new Date(),
+      });
+      const profile = await ProviderProfile.findOne({ user: req.user._id });
+      runDocVerification(service._id, docBuffers, docMimes, profile).catch(err =>
+        console.error('[DocVerify] Retrigger error:', err.message)
+      );
+    } else {
+      // No documents retrievable — mark as failed so frontend shows error
+      await Service.findByIdAndUpdate(service._id, {
+        workflowStatus:                   'rejected',
+        'docVerification.status':         'failed',
+        'docVerification.currentStage':   'Verification failed — please re-upload documents',
+        'docVerification.failureReasons': ['Verification server was restarted. Please re-upload your documents.'],
+      });
+    }
+
+    // Refresh the service object before responding
+    const refreshed = await Service.findById(service._id);
+    return res.json({
+      success: true,
+      data: {
+        workflowStatus:  refreshed.workflowStatus,
+        docVerification: refreshed.docVerification,
+      },
+    });
+  }
+
   res.json({
     success: true,
     data: {
-      workflowStatus:  service.workflowStatus,
-      docVerification: service.docVerification,
+      workflowStatus:  ws,
+      docVerification: dv,
     },
   });
 }));
