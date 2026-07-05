@@ -1,20 +1,22 @@
 import axios from 'axios';
 
-// Base URL of the backend — used for both API calls and static asset URLs (/uploads/...)
-export const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
-  .replace(/\/api$/, '');
+// VITE_API_URL should be '/api' in dev (uses Vite proxy) or the full URL in production.
+// VITE_BACKEND_URL is the backend origin used for /uploads/ image URLs.
+const API_URL     = import.meta.env.VITE_API_URL     || '/api';
+const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+// Exported for image URL resolution only — not used for API calls.
+export const BACKEND_URL = BACKEND_ORIGIN;
 
 // Resolve a potentially-relative image path to a full URL.
-// Safe to call with already-absolute URLs (http/https/data:).
 export function getImageUrl(url) {
   if (!url) return '';
   if (url.startsWith('http') || url.startsWith('data:')) return url;
-  return `${BACKEND_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  return `${BACKEND_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
 const api = axios.create({
-
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -34,7 +36,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           const { data } = await axios.post(
-  `${import.meta.env.VITE_API_URL}/auth/refresh`,
+  `${API_URL}/auth/refresh`,
   { refreshToken }
 );
           localStorage.setItem('accessToken', data.data.accessToken);
@@ -126,13 +128,12 @@ export const reviewAPI = {
 };
 
 export const paymentAPI = {
-  getPlans:        ()     => api.get('/payments/plans'),
-  getRazorpayKey:  ()     => api.get('/payments/razorpay-key'),
-  createOrder:     (plan, serviceId) => api.post('/payments/create-order', { plan, serviceId }),
-  verify:          (data) => api.post('/payments/verify', data),
-  recordFailure:   (data) => api.post('/payments/failure', data),
-  getSubscription: ()     => api.get('/payments/subscription'),
-  getHistory:      ()     => api.get('/payments/history'),
+  getPlans:        ()                    => api.get('/payments/plans'),
+  createOrder:     (plan, serviceId)     => api.post('/payments/create-order', { plan, serviceId }),
+  verify:          (data)                => api.post('/payments/verify', data),
+  recordFailure:   (data)                => api.post('/payments/failure', data),
+  getSubscription: ()                    => api.get('/payments/subscription'),
+  getHistory:      ()                    => api.get('/payments/history'),
 };
 
 export const communityAPI = {

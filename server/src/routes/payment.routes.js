@@ -1,6 +1,6 @@
 import express from 'express';
-import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import { Cashfree, CFEnvironment } from 'cashfree-pg';
 import ProviderProfile from '../models/ProviderProfile.js';
 import Service from '../models/Service.js';
 import Transaction from '../models/Transaction.js';
@@ -13,244 +13,224 @@ const router = express.Router();
 
 export const PLANS = {
   basic: {
-    name:     'Basic',
-    price:    process.env.NODE_ENV === 'production' ? 299  : 8,
+    name: 'Basic',
+    price: process.env.NODE_ENV === 'production' ? 299 : 8,
     duration: 30,
     features: ['Service listing', 'Standard visibility', 'Email support', 'Up to 5 bookings/month'],
   },
   growth: {
-    name:     'Growth',
-    price:    process.env.NODE_ENV === 'production' ? 799  : 10,
+    name: 'Growth',
+    price: process.env.NODE_ENV === 'production' ? 799 : 10,
     duration: 30,
     features: ['Priority listing', 'Analytics dashboard', 'Featured badge', 'Unlimited bookings', 'Phone support'],
   },
   premium: {
-    name:     'Premium',
-    price:    process.env.NODE_ENV === 'production' ? 1499 : 15,
+    name: 'Premium',
+    price: process.env.NODE_ENV === 'production' ? 1499 : 15,
     duration: 30,
     features: ['Top placement', 'Unlimited bookings', 'Premium support', 'Featured badge', 'Advanced analytics', 'Custom profile page'],
   },
   enterprise: {
-    name:     'Enterprise',
-    price:    process.env.NODE_ENV === 'production' ? 4999 : 20,
+    name: 'Enterprise',
+    price: process.env.NODE_ENV === 'production' ? 4999 : 20,
     duration: 30,
     features: ['Top placement', 'Promotional features', 'Advanced analytics'],
   },
 };
 
-console.log(`[Payment] NODE_ENV=${process.env.NODE_ENV} — plan prices: basic=${PLANS.basic.price} growth=${PLANS.growth.price} premium=${PLANS.premium.price}`);
+// cashfree-pg v6: Cashfree is a CLASS, not a static singleton.
+// Must use: new Cashfree(CFEnvironment, clientId, secret)
+// Then call instance methods: cf.PGCreateOrder(), cf.PGOrderFetchPayments()
+function getCashfree() {
+  const clientId = process.env.CASHFREE_CLIENT_ID;
+  const clientSecret = process.env.CASHFREE_CLIENT_SECRET;
+  const envStr = (process.env.CASHFREE_ENV || 'TEST').toUpperCase();
 
-const getRazorpay = () => {
-  if (!process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID.includes('your_key')) return null;
-  return new Razorpay({
-    key_id:     process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-  });
-};
+  console.log('[Payment] getCashfree clientId=' + (clientId ? clientId.substring(0, 10) + '...' : 'MISSING') + ' env=' + envStr);
 
-// ── Plans ─────────────────────────────────────────────────────────────────────
+  if (!clientId || !clientSecret) {
+    console.warn('[Payment] Cashfree credentials missing - MOCK mode');
+    return null;
+  }
+
+  const cfEnv = envStr === 'PROD' ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+  const cf = new Cashfree(cfEnv, clientId, clientSecret);
+  console.log('[Payment] Cashfree instance created OK');
+  return cf;
+}
+
 router.get('/plans', (req, res) => {
   res.json({ success: true, data: PLANS });
 });
 
-// ── Return Razorpay public key to frontend ────────────────────────────────────
-router.get('/razorpay-key', (req, res) => {
-  const key = process.env.RAZORPAY_KEY_ID;
-  const configured = key && !key.includes('your_key');
-  res.json({ success: true, data: { key: configured ? key : null, testMode: true } });
-});
-
-// ── Create Razorpay order ─────────────────────────────────────────────────────
 router.post('/create-order', protect, authorize('provider'), asyncHandler(async (req, res) => {
   const { plan, serviceId } = req.body;
   if (!PLANS[plan]) throw new AppError('Invalid plan', 400);
 
   const planDetails = PLANS[plan];
-  const razorpay    = getRazorpay();
+  const cf = getCashfree();
 
-  // Create a pending transaction record
   const txn = await Transaction.create({
-    provider:          req.user._id,
-    service:           serviceId || null,
+    provider: req.user._id,
+    service: serviceId || null,
     plan,
-    amount:            planDetails.price,
-    status:            'pending',
-    isMock:            !razorpay,
+    amount: planDetails.price,
+    status: 'pending',
+    isMock: !cf,
   });
 
-  if (!razorpay) {
-    // No Razorpay keys — return a mock order for test/dev
-    console.log('[Payment] Razorpay not configured — returning mock order');
-    const mockOrderId = `mock_order_${Date.now()}`;
-    txn.razorpayOrderId = mockOrderId;
+  console.log('[Payment] Transaction ' + txn._id + ' plan=' + plan + ' mock=' + !cf);
+
+  if (!cf) {
+    txn.cashfreeOrderId = 'mock_order_' + Date.now();
     await txn.save();
     return res.json({
       success: true,
-      data: {
-        orderId:       mockOrderId,
-        amount:        planDetails.price * 100,
-        currency:      'INR',
-        plan,
-        mock:          true,
-        transactionId: txn._id,
-        keyId:         null,
-      },
+      data: { orderId: txn.cashfreeOrderId, sessionId: null, amount: planDetails.price, currency: 'INR', plan, mock: true, transactionId: txn._id },
     });
   }
 
-  const receipt = `TB${Date.now()}`;
-  console.log('[Payment] Receipt:', receipt, '| length:', receipt.length);  // always < 20 chars
+  const orderId = 'TB_' + txn._id;
+  const orderRequest = {
+    order_id: orderId,
+    order_amount: planDetails.price,
+    order_currency: 'INR',
+    customer_details: {
+      customer_id: req.user._id.toString(),
+      customer_email: req.user.email,
+      customer_phone: req.user.phone || '9999999999',
+      customer_name: req.user.name || 'TrustBridge User',
+    },
+    order_meta: { notify_url: (process.env.SERVER_URL || 'http://localhost:5000') + '/api/payments/webhook' },
+    order_note: 'TrustBridge ' + planDetails.name + ' subscription',
+  };
 
-  const order = await razorpay.orders.create({
-    amount:   planDetails.price * 100,
-    currency: 'INR',
-    receipt,
-    notes:    { plan, userId: req.user._id.toString(), transactionId: txn._id.toString() },
-  });
+  console.log('[Payment] Calling cf.PGCreateOrder for order ' + orderId);
+  console.log('[Payment] orderRequest:', JSON.stringify(orderRequest, null, 2));
 
-  console.log('[Payment] Full Razorpay order object:', JSON.stringify(order, null, 2));
-  console.log('[Payment] Verification — currency:', order.currency, '| amount_paise:', order.amount, '| amount_inr:', order.amount / 100, '| order_id:', order.id);
+  let cfOrder;
+  try {
+    const response = await cf.PGCreateOrder(orderRequest);
+    cfOrder = response.data;
+    console.log('[Payment] PGCreateOrder OK order_id=' + cfOrder.order_id + ' session=' + cfOrder.payment_session_id);
+  } catch (err) {
+    const cfErr = err.response ? JSON.stringify(err.response.data) : err.message;
+    console.error('[Payment] PGCreateOrder failed:', cfErr);
+    throw new AppError('Cashfree order creation failed: ' + cfErr, 502);
+  }
 
-  txn.razorpayOrderId = order.id;
+  txn.cashfreeOrderId = cfOrder.order_id;
   await txn.save();
 
   res.json({
     success: true,
-    data: {
-      orderId:       order.id,
-      amount:        order.amount,
-      currency:      order.currency,
-      plan,
-      mock:          false,
-      transactionId: txn._id,
-      keyId:         process.env.RAZORPAY_KEY_ID,
-    },
+    data: { orderId: cfOrder.order_id, sessionId: cfOrder.payment_session_id, amount: planDetails.price, currency: 'INR', plan, mock: false, transactionId: txn._id },
   });
 }));
 
-// ── Verify payment & activate subscription ────────────────────────────────────
 router.post('/verify', protect, authorize('provider'), asyncHandler(async (req, res) => {
-  const {
-    plan,
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    transactionId,
-    mock,
-  } = req.body;
-
+  const { plan, transactionId, orderId, mock } = req.body;
   if (!PLANS[plan]) throw new AppError('Invalid plan', 400);
 
-  // Find the pending transaction
   const txn = await Transaction.findById(transactionId);
   if (!txn) throw new AppError('Transaction not found', 404);
   if (txn.provider.toString() !== req.user._id.toString()) throw new AppError('Unauthorized', 403);
 
-  // ── Signature verification (skip only in genuine mock/test mode) ──────────
-  const isMockOrder = mock === true || (razorpay_order_id && razorpay_order_id.startsWith('mock_'));
+  const cf = getCashfree();
 
-  if (!isMockOrder) {
-    if (!process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET.includes('your_key')) {
-      throw new AppError('Razorpay not configured on server', 500);
-    }
-    const expectedSig = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-    if (expectedSig !== razorpay_signature) {
-      txn.status = 'failed';
-      txn.failureReason = 'Signature mismatch';
-      await txn.save();
-      throw new AppError('Payment verification failed — signature mismatch', 400);
-    }
-    console.log(`[Payment] Signature verified ✓ order=${razorpay_order_id} payment=${razorpay_payment_id}`);
+  if (mock === true || !cf) {
+    console.log('[Payment] Mock verify - activating directly');
+    txn.status = 'success';
+    txn.cashfreePaymentId = 'mock_pay_' + Date.now();
+    await txn.save();
   } else {
-    console.log('[Payment] Mock payment — skipping signature verification');
+    const cfOrderId = txn.cashfreeOrderId || orderId;
+    console.log('[Payment] Verify — orderId from body:', orderId);
+    console.log('[Payment] Verify — txn.cashfreeOrderId:', txn.cashfreeOrderId);
+    console.log('[Payment] Verify — using cfOrderId:', cfOrderId);
+    let payments;
+    try {
+      const response = await cf.PGOrderFetchPayments(cfOrderId);
+      payments = response.data;
+    } catch (err) {
+      const cfErr = err.response ? JSON.stringify(err.response.data) : err.message;
+      throw new AppError('Could not verify payment: ' + cfErr, 502);
+    }
+
+    const successPay = Array.isArray(payments) ? payments.find(p => p.payment_status === 'SUCCESS') : null;
+    if (!successPay) {
+      const statuses = Array.isArray(payments) ? payments.map(p => p.payment_status).join(', ') : 'none';
+      txn.status = 'failed';
+      txn.failureReason = 'No successful payment. Statuses: ' + statuses;
+      await txn.save();
+      throw new AppError('Payment not completed. Status: ' + statuses, 402);
+    }
+
+    txn.cashfreePaymentId = String(successPay.cf_payment_id);
+    txn.status = 'success';
+    await txn.save();
+    console.log('[Payment] Verified OK cf_payment_id=' + successPay.cf_payment_id);
   }
 
-  // ── Update transaction record ─────────────────────────────────────────────
-  txn.razorpayPaymentId  = razorpay_payment_id || `mock_pay_${Date.now()}`;
-  txn.razorpaySignature  = razorpay_signature  || 'mock_sig';
-  txn.status             = 'success';
-  await txn.save();
-
-  // ── Activate subscription ─────────────────────────────────────────────────
   const startDate = new Date();
-  const endDate   = new Date(startDate.getTime() + PLANS[plan].duration * 24 * 60 * 60 * 1000);
-
+  const endDate = new Date(startDate.getTime() + PLANS[plan].duration * 24 * 60 * 60 * 1000);
   const profile = await ProviderProfile.findOneAndUpdate(
     { user: req.user._id },
-    {
-      subscription: {
-        plan,
-        status:                  'active',
-        startDate,
-        endDate,
-        razorpaySubscriptionId:  txn.razorpayPaymentId,
-        transactionId:           txn._id,
-      },
-    },
-    { new: true }
+    { subscription: { plan, status: 'active', startDate, endDate, transactionId: txn._id } },
+    { new: true, upsert: true }
   );
 
-  // ── Activate ONLY the verified service (not all services) ────────────────
   if (txn.service) {
     const svc = await Service.findById(txn.service);
-    if (svc && svc.docVerification?.identityPassed) {
-      svc.isVisible      = true;
-      svc.isFeatured     = ['premium', 'enterprise', 'growth'].includes(plan);
+    if (svc && svc.docVerification && svc.docVerification.identityPassed) {
+      svc.isVisible = true;
+      svc.isFeatured = ['premium', 'enterprise', 'growth'].includes(plan);
       svc.workflowStatus = 'published';
       await svc.save();
-      console.log(`[Payment] Service ${txn.service} published`);
-    } else {
-      console.log(`[Payment] Service ${txn.service} not published — identity not verified`);
     }
   }
 
   const io = req.app.get('io');
-  const notification = await createNotification(
-    req.user._id, 'subscription', 'Subscription Activated',
-    `Your ${PLANS[plan].name} plan is now active! Your service is live.`,
-    '/dashboard/provider'
-  );
+  const notification = await createNotification(req.user._id, 'subscription', 'Subscription Activated', 'Your ' + PLANS[plan].name + ' plan is now active!', '/dashboard/provider');
   emitNotification(io, req.user._id.toString(), notification);
-
-  console.log(`[Payment] ✓ Subscription activated: ${plan} for user ${req.user._id}`);
-
+  console.log('[Payment] Subscription activated plan=' + plan);
   res.json({ success: true, data: { profile, transaction: txn } });
 }));
 
-// ── Handle payment failure ────────────────────────────────────────────────────
-router.post('/failure', protect, authorize('provider'), asyncHandler(async (req, res) => {
-  const { transactionId, reason } = req.body;
-  if (transactionId) {
-    await Transaction.findByIdAndUpdate(transactionId, {
-      status:        'failed',
-      failureReason: reason || 'User cancelled or payment declined',
-    });
+router.post('/webhook', asyncHandler(async (req, res) => {
+  const event = req.body;
+  if (event.type === 'PAYMENT_SUCCESS_WEBHOOK') {
+    const cfOrderId = event.data && event.data.order && event.data.order.order_id;
+    if (cfOrderId) {
+      const txn = await Transaction.findOne({ cashfreeOrderId: cfOrderId });
+      if (txn && txn.status !== 'success') {
+        txn.status = 'success';
+        txn.cashfreePaymentId = String(event.data.payment && event.data.payment.cf_payment_id || '');
+        await txn.save();
+      }
+    }
   }
-  res.json({ success: true, message: 'Payment failure recorded' });
+  res.status(200).json({ received: true });
 }));
 
-// ── Get subscription status ───────────────────────────────────────────────────
+router.post('/failure', protect, authorize('provider'), asyncHandler(async (req, res) => {
+  const { transactionId, reason } = req.body;
+  if (transactionId) await Transaction.findByIdAndUpdate(transactionId, { status: 'failed', failureReason: reason || 'User cancelled' });
+  res.json({ success: true });
+}));
+
 router.get('/subscription', protect, authorize('provider'), asyncHandler(async (req, res) => {
   const profile = await ProviderProfile.findOne({ user: req.user._id });
-
-  if (profile?.subscription?.endDate && new Date(profile.subscription.endDate) < new Date()) {
+  if (profile && profile.subscription && profile.subscription.endDate && new Date(profile.subscription.endDate) < new Date()) {
     profile.subscription.status = 'expired';
     await profile.save();
     await Service.updateMany({ provider: req.user._id }, { isVisible: false, isFeatured: false });
   }
-
-  res.json({ success: true, data: profile?.subscription, plans: PLANS });
+  res.json({ success: true, data: profile && profile.subscription, plans: PLANS });
 }));
 
-// ── Payment history ───────────────────────────────────────────────────────────
 router.get('/history', protect, authorize('provider'), asyncHandler(async (req, res) => {
-  const transactions = await Transaction.find({ provider: req.user._id })
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .populate('service', 'title');
+  const transactions = await Transaction.find({ provider: req.user._id }).sort({ createdAt: -1 }).limit(20).populate('service', 'title');
   res.json({ success: true, data: transactions });
 }));
 

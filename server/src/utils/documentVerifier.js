@@ -278,6 +278,19 @@ async function googleVisionOCR(buf){
 }
 
 // ── Tesseract ─────────────────────────────────────────────────────────────────
+// Wrap a promise with a hard timeout to prevent Tesseract from hanging the server
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      console.warn(`[DocVerify] ${label} timed out after ${ms}ms`);
+      resolve({ text: '', confidence: 0, provider: 'tesseract', timedOut: true });
+    }, ms);
+    promise
+      .then(v => { clearTimeout(t); resolve(v); })
+      .catch(e => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function runTesseract(buf){
   const Tess=(await import('tesseract.js')).default;
   const res=await Tess.recognize(buf,'eng+hin',{logger:m=>{if(m.status==='recognizing text')process.stdout.write(`\r[DocVerify] Tesseract: ${Math.round(m.progress*100)}%`);}});
@@ -289,14 +302,18 @@ async function tesseractOCR(buf,docType){
   const chk=validateImageBuffer(buf);
   if(!chk.valid){console.warn(`[DocVerify] Format: ${chk.reason}`);return{text:'',confidence:0,provider:'tesseract',invalidFormat:true,reason:chk.reason};}
   console.log('[DocVerify] OCR pass 1...');
-  const b1=await preprocessImage(buf,false);let res=await runTesseract(b1);
-  console.log(`[DocVerify] Pass 1: conf=${res.confidence.toFixed(1)}% len=${res.text.length}`);
+  const b1=await preprocessImage(buf,false);
+  // 60s timeout per OCR pass — prevents Tesseract from blocking the process forever
+  let res=await withTimeout(runTesseract(b1), 60000, 'OCR pass 1');
+  console.log(`[DocVerify] Pass 1: conf=${res.confidence.toFixed(1)}% len=${res.text.length}${res.timedOut?' [TIMED OUT]':''}`);
+  if(res.timedOut) return res;
   const mc=DOC_MIN_CONF[docType]??GLOBAL_MIN_CONF;
   if(res.confidence<mc+20){
     console.log('[DocVerify] OCR pass 2 (aggressive)...');
-    const b2=await preprocessImage(buf,true);const r2=await runTesseract(b2);
-    console.log(`[DocVerify] Pass 2: conf=${r2.confidence.toFixed(1)}% len=${r2.text.length}`);
-    if(r2.text.length>res.text.length||r2.confidence>res.confidence){console.log('[DocVerify] Using pass 2');res=r2;}
+    const b2=await preprocessImage(buf,true);
+    const r2=await withTimeout(runTesseract(b2), 60000, 'OCR pass 2');
+    console.log(`[DocVerify] Pass 2: conf=${r2.confidence.toFixed(1)}% len=${r2.text.length}${r2.timedOut?' [TIMED OUT]':''}`);
+    if(!r2.timedOut && (r2.text.length>res.text.length||r2.confidence>res.confidence)){console.log('[DocVerify] Using pass 2');res=r2;}
   }
   console.log(`[DocVerify] Raw OCR:\n=== START ===\n${res.text.slice(0,800)}\n=== END ===`);
   return res;
@@ -308,7 +325,8 @@ async function runOCR(buf,docType){
     catch(e){console.warn('[DocVerify] Google Vision failed:',e.message);}
   }
   if(PROVIDER==='simulation')return{text:'',confidence:0,provider:'simulation'};
-  return tesseractOCR(buf,docType);
+  // Wrap entire tesseractOCR in a 90s safety net
+  return withTimeout(tesseractOCR(buf,docType), 90000, 'tesseractOCR total');
 }
 
 // ── Per-document verification ─────────────────────────────────────────────────

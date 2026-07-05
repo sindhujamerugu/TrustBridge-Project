@@ -518,12 +518,27 @@ function StepVerification({ serviceId, onNext, onRetry }) {
   const [status, setStatus] = useState("verifying");
   const [vData,  setVData]  = useState(null);
   const [stage,  setStage]  = useState("Preparing documents for analysis…");
+  const [errCount, setErrCount] = useState(0);
+  const [elapsed,  setElapsed]  = useState(0);
 
   useEffect(() => {
     let interval;
+    let errors = 0;
+    let ticks  = 0;
+    const MAX_ERRORS = 5;
+    const MAX_SECS   = 180;
+
     const poll = async () => {
+      ticks++;
+      setElapsed(ticks * 3);
+      if (ticks * 3 >= MAX_SECS) {
+        clearInterval(interval);
+        setStatus("timeout");
+        return;
+      }
       try {
         const { data } = await serviceAPI.getVerificationStatus(serviceId);
+        errors = 0; setErrCount(0);
         const ws = data.data.workflowStatus;
         const dv = data.data.docVerification;
         setVData(dv);
@@ -533,12 +548,48 @@ function StepVerification({ serviceId, onNext, onRetry }) {
         } else if (ws === "rejected") {
           setStatus("failed"); clearInterval(interval);
         }
-      } catch {}
+      } catch {
+        errors++;
+        setErrCount(errors);
+        if (errors >= MAX_ERRORS) {
+          clearInterval(interval);
+          setStatus("server_error");
+        }
+      }
     };
     poll();
-    interval = setInterval(poll, 2500);
+    interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [serviceId]);
+
+  /* ── Server Error / Timeout ── */
+  if (status === "server_error" || status === "timeout") return (
+    <div style={{ border: "1.5px solid #fecaca", borderRadius: 14, background: "#fef2f2", overflow: "hidden", padding: "20px 22px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <AlertCircle style={{ width: 24, height: 24, color: "#dc2626", flexShrink: 0 }} />
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#b91c1c", margin: "0 0 2px" }}>
+            {status === "timeout" ? "Verification Timed Out" : "Server Unavailable"}
+          </p>
+          <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>
+            {status === "timeout"
+              ? "Verification took too long. The server may still be processing — check back in a few minutes."
+              : "Could not reach the server. The OCR process may still be running in the background."}
+          </p>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => { setStatus("verifying"); setErrCount(0); setElapsed(0); }}
+          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#2563eb", color: "white", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          Retry
+        </button>
+        <button onClick={onRetry}
+          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "white", border: "1.5px solid #fecaca", color: "#dc2626", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          Re-upload Docs
+        </button>
+      </div>
+    </div>
+  );
 
   /* ── In Progress ── */
   if (status === "verifying") return (
@@ -731,252 +782,208 @@ function StepSubscription({ onSelect, onSkip, currentPlan }) {
   );
 }
 
-/* ─── Step 5: Payment ─── */
+/* --- Step 5: Payment --- */
 function StepPayment({ plan, serviceId, onSuccess }) {
-  const [stage,   setStage]   = useState("idle");  // idle | processing | verifying | success | failed
-  const [errMsg,  setErrMsg]  = useState("");
-  const [txnId,   setTxnId]   = useState(null);
+  const [stage,  setStage]  = useState("idle");
+  const [errMsg, setErrMsg] = useState("");
   const plans    = usePlans();
   const planData = plans.find(p => p.key === plan) || plans[0] || PLANS_STATIC[0];
 
-  // Load Razorpay SDK script once
-  const loadRazorpayScript = () =>
-    new Promise(resolve => {
-      if (window.Razorpay) { resolve(true); return; }
-      const s = document.createElement("script");
-      s.src = "https://checkout.razorpay.com/v1/checkout.js";
-      s.onload  = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.body.appendChild(s);
-    });
+  // Load Cashfree JS SDK dynamically
+  const loadCashfreeSDK = () => new Promise(resolve => {
+    if (window.Cashfree) { console.log("[Payment] Cashfree SDK already loaded"); resolve(true); return; }
+    console.log("[Payment] Loading Cashfree SDK from CDN...");
+    const s = document.createElement("script");
+    s.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+    s.onload  = () => { console.log("[Payment] Cashfree SDK loaded successfully"); resolve(true); };
+    s.onerror = () => { console.error("[Payment] Failed to load Cashfree SDK"); resolve(false); };
+    document.body.appendChild(s);
+  });
 
   const pay = async () => {
-    setStage("processing"); setErrMsg("");
+    setStage("processing");
+    setErrMsg("");
 
-    // 1. Create order on backend
-    let orderData;
-    let transactionId;
+    // ── Step 1: Create order on backend ───────────────────────────────────
+    console.log(`[Payment] Step 1 — Creating order for plan=${plan} serviceId=${serviceId}`);
+    let orderData, transactionId;
     try {
-      const { data: orderResp } = await paymentAPI.createOrder(plan, serviceId);
-      orderData     = orderResp.data;
+      const { data: r } = await paymentAPI.createOrder(plan, serviceId);
+      orderData     = r.data;
       transactionId = orderData.transactionId;
-      setTxnId(transactionId);
-    } catch(e) {
+      console.log("[Payment] Step 1 ✓ — Order created:", JSON.stringify(orderData));
+    } catch (e) {
+      const msg = e.response?.data?.message || "Failed to create payment order.";
+      console.error("[Payment] Step 1 ✗ — Order creation failed:", msg);
       setStage("failed");
-      setErrMsg(e.response?.data?.message || "Failed to create payment order. Please try again.");
+      setErrMsg(msg);
       return;
     }
 
-    // 2. If mock mode (no Razorpay keys configured) — complete directly
-    if (orderData.mock) {
-      setStage("verifying");
-      try {
-        await paymentAPI.verify({
-          plan,
-          razorpay_order_id:   orderData.orderId,
-          razorpay_payment_id: `mock_pay_${Date.now()}`,
-          razorpay_signature:  "mock_sig",
-          transactionId,
-          mock: true,
-        });
-        try { await serviceAPI.activateService(serviceId); } catch {}
-        setStage("success");
-        toast.success("Payment successful! Your service is now live 🎉");
-        setTimeout(() => onSuccess(), 1800);
-      } catch(e) {
-        setStage("failed");
-        setErrMsg(e.response?.data?.message || "Verification failed. Please contact support.");
-      }
+    // ── Step 3: Validate session ID returned by backend ───────────────────
+    if (!orderData.sessionId) {
+      console.error("[Payment] Step 3 ✗ — No payment_session_id in response:", orderData);
+      setStage("failed");
+      setErrMsg("Server did not return a payment session. Please try again.");
+      return;
+    }
+    console.log(`[Payment] Step 3 ✓ — Session ID: ${orderData.sessionId}`);
+
+    // ── Step 4: Load Cashfree SDK ─────────────────────────────────────────
+    const loaded = await loadCashfreeSDK();
+    if (!loaded || !window.Cashfree) {
+      setStage("failed");
+      setErrMsg("Could not load Cashfree payment gateway. Check your internet connection.");
       return;
     }
 
-    // 3. Real Razorpay flow — load SDK and open modal
-    const loaded = await loadRazorpayScript();
-    if (!loaded) {
+    // ── Step 5: Launch Cashfree Checkout ──────────────────────────────────
+    const cfEnv = (import.meta.env.VITE_CASHFREE_ENV || "sandbox").toLowerCase();
+    console.log(`[Payment] Step 4 — Initialising Cashfree SDK (env=${cfEnv})`);
+    let cashfree;
+    try {
+      cashfree = await window.Cashfree({ mode: cfEnv });
+    } catch (e) {
+      console.error("[Payment] Cashfree init failed:", e);
       setStage("failed");
-      setErrMsg("Failed to load Razorpay. Please check your internet connection.");
+      setErrMsg("Failed to initialise payment gateway: " + e.message);
       return;
     }
 
-    const options = {
-      key:         orderData.keyId,
-      amount:      orderData.amount,
-      currency:    orderData.currency || "INR",
-      name:        "TrustBridge",
-      description: `${planData.name} Plan Subscription`,
-      order_id:    orderData.orderId,
-      theme:       { color: "#2563eb" },
-      // IMPORTANT: prefill.contact must be a valid 10-digit Indian number for UPI to appear
-      prefill: {
-        name:    "",
-        email:   "",
-        contact: "9999999999",
-      },
-      // Do NOT set config.display or method restrictions — let Razorpay show all available methods
-      // including UPI, Cards, Netbanking, Wallets
-      modal: {
-        backdropclose: false,
-        escape:        false,
-        ondismiss: async () => {
-          setStage("failed");
-          setErrMsg("Payment was cancelled.");
-          await paymentAPI.recordFailure({ transactionId, reason: "User cancelled" }).catch(() => {});
-        },
-      },
-      handler: async (response) => {
-        setStage("verifying");
-        try {
-          await paymentAPI.verify({
-            plan,
-            razorpay_order_id:   response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature:  response.razorpay_signature,
-            transactionId,
-            mock: false,
-          });
-          try { await serviceAPI.activateService(serviceId); } catch {}
-          setStage("success");
-          toast.success("Payment successful! Your service is now live 🎉");
-          setTimeout(() => onSuccess(), 1800);
-        } catch(e) {
-          setStage("failed");
-          setErrMsg(e.response?.data?.message || "Payment verification failed. Contact support.");
-        }
-      },
-    };
+    console.log(`[Payment] Step 5 — Opening Cashfree checkout (sessionId=${orderData.sessionId})`);
+    setStage("idle"); // show nothing while modal is open
 
-    // Full debug log — check browser console for this
-    console.log('[Razorpay] ── OPTIONS OBJECT ──────────────────────────');
-    console.log('[Razorpay] key:            ', options.key);
-    console.log('[Razorpay] order_id:       ', options.order_id);
-    console.log('[Razorpay] amount (paise): ', options.amount, '→ ₹', options.amount / 100);
-    console.log('[Razorpay] currency:       ', options.currency);
-    console.log('[Razorpay] prefill.contact:', options.prefill.contact, '(10 digits required for UPI)');
-    console.log('[Razorpay] config:         ', 'none — letting Razorpay show all methods including UPI');
-    console.log('[Razorpay] ────────────────────────────────────────────');
-    console.log('[Razorpay] Full options:', JSON.stringify(options, null, 2));
-
-    const rzp = new window.Razorpay(options);
-    rzp.on("payment.failed", async (response) => {
+    let result;
+    try {
+      result = await cashfree.checkout({
+        paymentSessionId: orderData.sessionId,
+        redirectTarget:   "_modal",
+      });
+      console.log("[Payment] Step 5 — Checkout result:", JSON.stringify(result));
+    } catch (e) {
+      const msg = e?.message || "Payment was cancelled.";
+      console.error("[Payment] Checkout threw:", msg);
       setStage("failed");
-      setErrMsg(response.error?.description || "Payment failed. Please try again.");
-      await paymentAPI.recordFailure({ transactionId, reason: response.error?.description }).catch(() => {});
-    });
-    rzp.open();
-    setStage("idle"); // Reset to idle while modal is open (modal handles UI)
+      setErrMsg(msg);
+      await paymentAPI.recordFailure({ transactionId, reason: msg }).catch(() => {});
+      return;
+    }
+
+    // ── Step 6: Handle checkout result ────────────────────────────────────
+    if (result?.error) {
+      const reason = result.error?.message || "Payment failed";
+      console.error("[Payment] Step 6 — Checkout error:", reason);
+      setStage("failed");
+      setErrMsg(reason);
+      await paymentAPI.recordFailure({ transactionId, reason }).catch(() => {});
+      return;
+    }
+
+    if (result?.paymentDetails?.paymentStatus === "FAILED") {
+      console.error("[Payment] Step 6 — Payment FAILED");
+      setStage("failed");
+      setErrMsg("Payment was declined. Please try a different payment method.");
+      await paymentAPI.recordFailure({ transactionId, reason: "Declined" }).catch(() => {});
+      return;
+    }
+
+    // ── Step 7: Verify payment on backend ─────────────────────────────────
+    console.log(`[Payment] Step 7 — Verifying payment with backend (orderId=${orderData.orderId})`);
+    setStage("verifying");
+    try {
+      await paymentAPI.verify({ plan, transactionId, orderId: orderData.orderId, mock: false });
+      try { await serviceAPI.activateService(serviceId); } catch {}
+      console.log("[Payment] Step 7 ✓ — Payment verified and subscription activated");
+      setStage("success");
+      toast.success("Payment successful! Your service is now live 🎉");
+      setTimeout(() => onSuccess(), 1800);
+    } catch (e) {
+      const msg = e.response?.data?.message || "Payment verification failed. Contact support.";
+      console.error("[Payment] Step 7 ✗ — Verify failed:", msg);
+      setStage("failed");
+      setErrMsg(msg);
+    }
   };
 
-  /* ── Success state ── */
   if (stage === "success") return (
-    <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}}
-      style={{textAlign:"center",padding:"32px 20px"}}>
-      <div style={{fontSize:52,marginBottom:12}}>🎉</div>
-      <p style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:6}}>Payment Successful!</p>
-      <p style={{fontSize:13,color:"#64748b"}}>Your service is now live on TrustBridge.</p>
+    <motion.div initial={{ opacity:0, scale:0.95 }} animate={{ opacity:1, scale:1 }}
+      style={{ textAlign:"center", padding:"32px 20px" }}>
+      <div style={{ fontSize:52, marginBottom:12 }}>🎉</div>
+      <p style={{ fontSize:16, fontWeight:800, color:"#0f172a", marginBottom:6 }}>Payment Successful!</p>
+      <p style={{ fontSize:13, color:"#64748b" }}>Your service is now live on TrustBridge.</p>
     </motion.div>
   );
 
-  /* ── Processing / Verifying state ── */
   if (stage === "processing" || stage === "verifying") return (
-    <div style={{textAlign:"center",padding:"32px 20px"}}>
-      <Loader2 style={{width:44,height:44,color:"#2563eb",margin:"0 auto 16px",animation:"spin 1s linear infinite"}}/>
-      <p style={{fontSize:15,fontWeight:700,color:"#0f172a",marginBottom:4}}>
+    <div style={{ textAlign:"center", padding:"32px 20px" }}>
+      <Loader2 style={{ width:44, height:44, color:"#2563eb", margin:"0 auto 16px", animation:"spin 1s linear infinite" }}/>
+      <p style={{ fontSize:15, fontWeight:700, color:"#0f172a", marginBottom:4 }}>
         {stage === "processing" ? "Creating Payment Order…" : "Verifying Transaction…"}
       </p>
-      <p style={{fontSize:12,color:"#94a3b8"}}>
-        {stage === "processing" ? "Connecting to Razorpay…" : "Please do not close this window"}
+      <p style={{ fontSize:12, color:"#94a3b8" }}>
+        {stage === "processing" ? "Connecting to Cashfree…" : "Please do not close this window"}
       </p>
     </div>
   );
 
-  /* ── Failed state ── */
   if (stage === "failed") return (
-    <div style={{border:"1.5px solid #fecaca",borderRadius:14,background:"#fef2f2",padding:"20px 22px",display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <AlertCircle style={{width:22,height:22,color:"#dc2626",flexShrink:0}}/>
+    <div style={{ border:"1.5px solid #fecaca", borderRadius:14, background:"#fef2f2", padding:"20px 22px", display:"flex", flexDirection:"column", gap:14 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <AlertCircle style={{ width:22, height:22, color:"#dc2626", flexShrink:0 }}/>
         <div>
-          <p style={{fontSize:14,fontWeight:700,color:"#b91c1c",margin:"0 0 2px"}}>Payment Failed</p>
-          <p style={{fontSize:12,color:"#dc2626",margin:0}}>{errMsg}</p>
+          <p style={{ fontSize:14, fontWeight:700, color:"#b91c1c", margin:"0 0 2px" }}>Payment Failed</p>
+          <p style={{ fontSize:12, color:"#dc2626", margin:0 }}>{errMsg}</p>
         </div>
       </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>setStage("idle")}
-          style={{flex:1,padding:"11px",borderRadius:10,background:"#2563eb",color:"white",border:"none",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={() => { setStage("idle"); setErrMsg(""); }}
+          style={{ flex:1, padding:"11px", borderRadius:10, background:"#2563eb", color:"white", border:"none", fontSize:13, fontWeight:700, cursor:"pointer" }}>
           Retry Payment
         </button>
-        <button onClick={()=>{ setStage("idle"); setErrMsg(""); }}
-          style={{flex:1,padding:"11px",borderRadius:10,background:"white",border:"1.5px solid #fecaca",color:"#dc2626",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+        <button onClick={() => { setStage("idle"); setErrMsg(""); }}
+          style={{ flex:1, padding:"11px", borderRadius:10, background:"white", border:"1.5px solid #fecaca", color:"#dc2626", fontSize:13, fontWeight:600, cursor:"pointer" }}>
           Cancel
         </button>
       </div>
     </div>
   );
 
-  /* ── Idle: order summary + pay button ── */
-  const priceNum = planData.priceNum || parseInt(planData.price.replace(/[^0-9]/g,"")) || 0;
-
+  const priceNum = planData.priceNum || parseInt((planData.price || "0").replace(/[^0-9]/g, "")) || 0;
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      {/* Order Summary */}
-      <div style={{background:"#f8fafc",borderRadius:12,padding:"16px 18px",border:"1.5px solid #e2e8f0"}}>
-        <p style={{fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>
-          Order Summary
-        </p>
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ background:"#f8fafc", borderRadius:12, padding:"16px 18px", border:"1.5px solid #e2e8f0" }}>
+        <p style={{ fontSize:11, fontWeight:700, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>Order Summary</p>
         {[
-          { label:`TrustBridge ${planData.name} Plan`, value:planData.price },
-          { label:"GST (18%)", value:`₹${Math.round(priceNum*0.18)}` },
-        ].map(r=>(
-          <div key={r.label} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-            <span style={{fontSize:13,color:"#475569"}}>{r.label}</span>
-            <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>{r.value}</span>
+          { label: `TrustBridge ${planData.name} Plan`, value: planData.price },
+          { label: "GST (18%)", value: `₹${Math.round(priceNum * 0.18)}` },
+        ].map(r => (
+          <div key={r.label} style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+            <span style={{ fontSize:13, color:"#475569" }}>{r.label}</span>
+            <span style={{ fontSize:13, fontWeight:600, color:"#0f172a" }}>{r.value}</span>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #e2e8f0",marginTop:6}}>
-          <span style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>Total</span>
-          <span style={{fontSize:16,fontWeight:800,color:"#2563eb"}}>
-            ₹{Math.round(priceNum*1.18)}
-          </span>
+        <div style={{ display:"flex", justifyContent:"space-between", paddingTop:10, borderTop:"1px solid #e2e8f0", marginTop:6 }}>
+          <span style={{ fontSize:13, fontWeight:700, color:"#0f172a" }}>Total</span>
+          <span style={{ fontSize:16, fontWeight:800, color:"#2563eb" }}>₹{Math.round(priceNum * 1.18)}</span>
         </div>
       </div>
 
-      {/* What you get */}
-      <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"12px 14px"}}>
-        <p style={{fontSize:11,fontWeight:700,color:"#15803d",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>
-          {planData.name} Plan Features
-        </p>
-        <div style={{display:"flex",flexDirection:"column",gap:5}}>
-          {planData.features.map(f=>(
-            <div key={f} style={{display:"flex",alignItems:"center",gap:7,fontSize:12,color:"#15803d"}}>
-              <CheckCircle style={{width:12,height:12,flexShrink:0}}/>{f}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Security badge */}
-      <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",
-        display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#1d4ed8"}}>
-        <Shield style={{width:14,height:14,flexShrink:0}}/>
-        Secured by Razorpay · 256-bit SSL · PCI DSS Level 1 Certified
+      <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#1d4ed8" }}>
+        <Shield style={{ width:14, height:14, flexShrink:0 }}/>
+        Secured by Cashfree · 256-bit SSL · PCI DSS Level 1
       </div>
 
       <button onClick={pay}
-        style={{width:"100%",padding:"14px",borderRadius:10,background:"#2563eb",
-          color:"white",border:"none",fontSize:15,fontWeight:700,cursor:"pointer",
-          display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-          boxShadow:"0 4px 16px rgba(37,99,235,0.35)"}}>
-        <Shield style={{width:16,height:16}}/> Proceed to Payment
+        style={{ width:"100%", padding:"14px", borderRadius:10, background:"#2563eb", color:"white", border:"none", fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, boxShadow:"0 4px 16px rgba(37,99,235,0.35)" }}>
+        <Shield style={{ width:16, height:16 }}/> Proceed to Payment
       </button>
-      <p style={{fontSize:11,color:"#94a3b8",textAlign:"center",margin:0}}>
-        You will be redirected to Razorpay's secure payment page
+      <p style={{ fontSize:11, color:"#94a3b8", textAlign:"center", margin:0 }}>
+        You will be redirected to the Cashfree secure payment page
       </p>
     </div>
   );
 }
 
-
-
-/* ─── Lightbox ─── */
 function Lightbox({ images, startIndex, onClose }) {
   const [idx,   setIdx]   = useState(startIndex);
   const [zoom,  setZoom]  = useState(1);
@@ -1908,7 +1915,7 @@ export default function ProviderDashboard() {
   const subscribe = async key => {
     try {
       const { data } = await paymentAPI.createOrder(key);
-      await paymentAPI.verify({ plan:key, mock:true, razorpay_order_id:data.data.orderId, razorpay_payment_id:`mock_${Date.now()}`, razorpay_signature:"mock" });
+      await paymentAPI.verify({ plan:key, mock:true, orderId:data.data.orderId, transactionId:data.data.transactionId });
       toast.success(`${key} plan activated!`);
       const su = await paymentAPI.getSubscription(); setSub(su.data.data); setShowPlans(false);
     } catch(e) { toast.error(e.response?.data?.message || "Payment failed"); }
