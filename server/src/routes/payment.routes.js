@@ -124,7 +124,7 @@ router.post('/create-order', protect, authorize('provider'), asyncHandler(async 
 
   res.json({
     success: true,
-    data: { orderId: cfOrder.order_id, sessionId: cfOrder.payment_session_id, amount: planDetails.price, currency: 'INR', plan, mock: false, transactionId: txn._id },
+    data: { orderId: cfOrder.order_id, sessionId: cfOrder.payment_session_id, amount: planDetails.price, currency: 'INR', plan, mock: false, transactionId: txn._id, cashfreeEnv: (process.env.CASHFREE_ENV || 'TEST').toUpperCase() === 'PROD' ? 'production' : 'sandbox' },
   });
 }));
 

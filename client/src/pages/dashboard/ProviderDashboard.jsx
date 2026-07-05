@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2, Calendar, TrendingUp, CreditCard, Plus, X,
@@ -837,9 +837,10 @@ function StepPayment({ plan, serviceId, onSuccess }) {
       return;
     }
 
-    // ── Step 5: Launch Cashfree Checkout ──────────────────────────────────
-    const cfEnv = (import.meta.env.VITE_CASHFREE_ENV || "sandbox").toLowerCase();
-    console.log(`[Payment] Step 4 — Initialising Cashfree SDK (env=${cfEnv})`);
+    // -- Step 5: Launch Cashfree Checkout
+    // Use the env reported by the backend -- guarantees SDK mode matches the session ID.
+    const cfEnv = orderData.cashfreeEnv || (import.meta.env.VITE_CASHFREE_ENV || "sandbox").toLowerCase();
+    console.log("[Payment] Step 4 -- Initialising Cashfree SDK (env=" + cfEnv + ", source=" + (orderData.cashfreeEnv ? 'backend' : 'env-var') + ")");
     let cashfree;
     try {
       cashfree = await window.Cashfree({ mode: cfEnv });
