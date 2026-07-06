@@ -12,30 +12,10 @@ import { createNotification, emitNotification } from '../utils/notifications.js'
 const router = express.Router();
 
 export const PLANS = {
-  basic: {
-    name: 'Basic',
-    price: process.env.NODE_ENV === 'production' ? 299 : 8,
-    duration: 30,
-    features: ['Service listing', 'Standard visibility', 'Email support', 'Up to 5 bookings/month'],
-  },
-  growth: {
-    name: 'Growth',
-    price: process.env.NODE_ENV === 'production' ? 799 : 10,
-    duration: 30,
-    features: ['Priority listing', 'Analytics dashboard', 'Featured badge', 'Unlimited bookings', 'Phone support'],
-  },
-  premium: {
-    name: 'Premium',
-    price: process.env.NODE_ENV === 'production' ? 1499 : 15,
-    duration: 30,
-    features: ['Top placement', 'Unlimited bookings', 'Premium support', 'Featured badge', 'Advanced analytics', 'Custom profile page'],
-  },
-  enterprise: {
-    name: 'Enterprise',
-    price: process.env.NODE_ENV === 'production' ? 4999 : 20,
-    duration: 30,
-    features: ['Top placement', 'Promotional features', 'Advanced analytics'],
-  },
+  basic:      { name: 'Basic',      price: 8,  duration: 30, features: ['Service listing', 'Standard visibility', 'Email support', 'Up to 5 bookings/month'] },
+  growth:     { name: 'Growth',     price: 10, duration: 30, features: ['Priority listing', 'Analytics dashboard', 'Featured badge', 'Unlimited bookings', 'Phone support'] },
+  premium:    { name: 'Premium',    price: 15, duration: 30, features: ['Top placement', 'Unlimited bookings', 'Premium support', 'Featured badge', 'Advanced analytics', 'Custom profile page'] },
+  enterprise: { name: 'Enterprise', price: 20, duration: 30, features: ['Top placement', 'Promotional features', 'Advanced analytics'] },
 };
 
 // cashfree-pg v6: Cashfree is a CLASS, not a static singleton.
