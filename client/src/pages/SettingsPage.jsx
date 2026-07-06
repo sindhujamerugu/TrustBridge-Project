@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Bell, Shield, ChevronRight, Loader2 } from "lucide-react";
+import { Lock, Bell, Shield, ChevronRight, Loader2, Eye } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
