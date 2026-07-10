@@ -28,6 +28,9 @@ import CareersPage         from './pages/CareersPage';
 import PrivacyPage         from './pages/PrivacyPage';
 import TermsPage           from './pages/TermsPage';
 import RefundPage          from './pages/RefundPage';
+import EmergencyContactsPage from './pages/EmergencyContactsPage';
+import StudentTipsPage     from './pages/StudentTipsPage';
+import FAQPage             from './pages/FAQPage';
 
 import NewcomerDashboard   from './pages/dashboard/NewcomerDashboard';
 import ResidentDashboard   from './pages/dashboard/ResidentDashboard';
@@ -64,6 +67,9 @@ export default function App() {
               <Route path="/privacy"         element={<PrivacyPage />} />
               <Route path="/terms"           element={<TermsPage />} />
               <Route path="/refund"          element={<RefundPage />} />
+              <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
+              <Route path="/student-tips"    element={<StudentTipsPage />} />
+              <Route path="/faq"             element={<FAQPage />} />
 
               {/* Protected */}
               <Route path="/chat"                element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />

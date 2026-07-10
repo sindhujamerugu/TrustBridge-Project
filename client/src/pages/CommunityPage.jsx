@@ -440,9 +440,9 @@ export default function CommunityPage() {
     <div style={{background:"#f0f4f8",minHeight:"100vh",fontFamily:"Inter,system-ui,sans-serif"}}>
 
       {/* ── Hero section ─────────────────────────────────────────────────────── */}
-      <div style={{background:"linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%)",paddingTop:40,paddingBottom:40}}>
+      <div style={{background:"linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%)",paddingTop:28,paddingBottom:28}}>
         <div className="wrap">
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
             <div>
               <div style={{display:"inline-flex",alignItems:"center",gap:7,background:"rgba(255,255,255,0.12)",
                 padding:"5px 14px",borderRadius:999,marginBottom:12}}>
@@ -491,8 +491,8 @@ export default function CommunityPage() {
       </div>
 
       {/* ── Body ─────────────────────────────────────────────────────────────── */}
-      <div className="wrap" style={{paddingTop:24,paddingBottom:56}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:22,alignItems:"start"}} className="cf-grid">
+      <div className="wrap" style={{paddingTop:20,paddingBottom:48}}>
+        <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 300px",gap:22,alignItems:"start"}} className="cf-grid">
 
           {/* ── Main column ──────────────────────────────────────────────────── */}
           <div>
@@ -568,7 +568,7 @@ export default function CommunityPage() {
           </div>
 
           {/* ── Right sidebar ────────────────────────────────────────────────── */}
-          <div style={{display:"flex",flexDirection:"column",gap:14,position:"sticky",top:84}}>
+          <div style={{display:"flex",flexDirection:"column",gap:14,position:"sticky",top:84,minWidth:0,maxWidth:300,width:"100%"}}>
 
             <TrendingQuestions posts={posts}/>
             <TopContributors posts={posts}/>
@@ -580,9 +580,9 @@ export default function CommunityPage() {
                 {[
                   {icon:"🏠",label:"Find Accommodation",to:"/services?category=Hostels"},
                   {icon:"🚗",label:"Transportation Guide",to:"/services?category=Transportation"},
-                  {icon:"🆘",label:"Emergency Contacts",to:"/community?action=ask"},
-                  {icon:"🎓",label:"Student Tips",to:"/community?category=education"},
-                  {icon:"❓",label:"Frequently Asked",to:"/community"},
+                  {icon:"🆘",label:"Emergency Contacts",to:"/emergency-contacts"},
+                  {icon:"🎓",label:"Student Tips",to:"/student-tips"},
+                  {icon:"❓",label:"Frequently Asked",to:"/faq"},
                 ].map(item=>(
                   <Link key={item.label} to={item.to} style={{textDecoration:"none"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:10,
@@ -646,13 +646,14 @@ export default function CommunityPage() {
       </AnimatePresence>
 
       <style>{`
-        @media(max-width:900px){.cf-grid{grid-template-columns:1fr !important;}}
+        @media(max-width:1024px){.cf-grid{grid-template-columns:1fr !important;}}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         .hide-scrollbar{scrollbar-width:none;-ms-overflow-style:none;}
         .hide-scrollbar::-webkit-scrollbar{display:none;}
         .overlay{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;
           justify-content:center;z-index:400;padding:16px;backdrop-filter:blur(2px);}
+        .cf-grid > *{min-width:0;}
       `}</style>
     </div>
   );
