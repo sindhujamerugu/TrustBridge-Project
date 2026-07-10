@@ -57,8 +57,8 @@ export default function Footer() {
               Helping newcomers settle safely in Hyderabad with verified locals and trusted services.
             </p>
             <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0", lineHeight: 1.5 }}>
-              Owned &amp; Operated by{" "}
-              <strong style={{ color: "#94a3b8", fontWeight: 600 }}>Nasani Ragamala and M. Sindhuja</strong>
+              Designed &amp; Developed by{" "}
+              <strong style={{ color: "#94a3b8", fontWeight: 600 }}>Nasani Ragamala &amp; Sindhuja Merugu</strong>
             </p>
             <a href="mailto:trustbridge.platform@gmail.com"
               style={{ display:"inline-block", marginTop:6, fontSize:11, color:"#94a3b8", textDecoration:"none",
@@ -96,7 +96,7 @@ export default function Footer() {
         <div className="wrap" style={{ paddingTop: 18, paddingBottom: 18, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 12, color: "#475569" }}>© {new Date().getFullYear()} TrustBridge. All rights reserved.</span>
-            <span style={{ fontSize: 11, color: "#374151" }}>Owned &amp; Operated by <strong style={{ color: "#475569" }}>Nasani Ragamala and M. Sindhuja</strong> · Hanamkonda, Telangana, India</span>
+            <span style={{ fontSize: 11, color: "#374151" }}>Designed &amp; Developed by <strong style={{ color: "#475569" }}>Nasani Ragamala &amp; Sindhuja Merugu</strong> · Hanamkonda, Telangana, India</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             {[{l:"Privacy Policy",to:"/privacy"},{l:"Terms",to:"/terms"},{l:"Refund Policy",to:"/refund"},{l:"Contact",to:"/contact"}].map(({l,to}) => (

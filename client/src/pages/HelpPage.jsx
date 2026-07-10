@@ -201,11 +201,16 @@ export default function HelpPage() {
             Find answers about accounts, bookings, verification, reviews, and more.
           </p>
           <div style={{ position:"relative", maxWidth:540, margin:"0 auto" }}>
-            <Search style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",width:16,height:16,color:"#94a3b8" }}/>
+            <Search style={{ position:"absolute",left:18,top:"50%",transform:"translateY(-50%)",width:17,height:17,color:"#64748b",pointerEvents:"none" }}/>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search help articles…"
-              style={{ width:"100%", padding:"13px 16px 13px 44px", borderRadius:12, border:"none",
-                fontSize:14, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}/>
+              style={{ width:"100%", padding:"14px 20px 14px 50px", borderRadius:999,
+                border:"2px solid transparent", background:"white",
+                fontSize:14, fontFamily:"inherit", color:"#0f172a",
+                boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
+                outline:"none", boxSizing:"border-box", transition:"border-color 0.2s, box-shadow 0.2s" }}
+              onFocus={e=>{ e.target.style.borderColor="#2563eb"; e.target.style.boxShadow="0 4px 24px rgba(37,99,235,0.25)"; }}
+              onBlur={e=>{  e.target.style.borderColor="transparent";   e.target.style.boxShadow="0 4px 20px rgba(0,0,0,0.18)"; }}/>
           </div>
         </div>
       </div>
