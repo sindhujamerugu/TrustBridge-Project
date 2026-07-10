@@ -22,8 +22,7 @@ const ACTION_CARDS = [
 
 const CATEGORIES = [
   { label: "Hostels",   to: "/services?category=Hostels"        },
-  { label: "Clinics",   to: "/services?category=Clinics"        },
-  { label: "Grocery",   to: "/services?category=Grocery+Stores" },
+ { label: "Grocery",   to: "/services?category=Grocery+Stores" },
   { label: "Transport", to: "/services?category=Transportation" },
   { label: "Education", to: "/services?category=Education"      },
 ];

@@ -208,7 +208,10 @@ export default function RegisterPage() {
                       </div>
                     )}
                     {role==="provider" && (
-                      <FieldBox label="Business Name" Icon={Building2} value={form.businessName} onChange={v=>upd("businessName",v)} placeholder="Your business name" required/>
+                      <>
+                        <FieldBox label="Business Name" Icon={Building2} value={form.businessName} onChange={v=>upd("businessName",v)} placeholder="Your business name" required/>
+                        <PhoneBox value={form.phone} onChange={v=>upd("phone",v)}/>
+                      </>
                     )}
                     {(() => {
                       const pwdOk = isPasswordValid(form.password) && form.password === form.confirm && form.confirm.length > 0;

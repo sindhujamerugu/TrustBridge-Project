@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, MessageCircle, User, Search, X, Send } from "lucide-react";
@@ -49,15 +49,11 @@ function GuideCard({resident,onMessage}) {
       style={{background:"white",border:`1.5px solid ${hov?"#bfdbfe":"#e2e8f0"}`,borderRadius:14,
         padding:"18px 20px",display:"flex",alignItems:"flex-start",gap:16,
         transition:"all 0.18s",boxShadow:hov?"0 4px 20px rgba(37,99,235,0.1)":"0 1px 3px rgba(0,0,0,0.04)"}}>
-
-      {/* Avatar */}
       <div style={{width:52,height:52,borderRadius:"50%",background:av(u.name),
         display:"flex",alignItems:"center",justifyContent:"center",
         color:"white",fontSize:20,fontWeight:800,flexShrink:0}}>
         {u.name?.charAt(0)}
       </div>
-
-      {/* Info */}
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{u.name}</span>
@@ -81,8 +77,6 @@ function GuideCard({resident,onMessage}) {
           <span>👍 {resident.helpfulVotes||0} helpful</span>
         </div>
       </div>
-
-      {/* Actions */}
       <div style={{display:"flex",flexDirection:"column",gap:8,flexShrink:0}}>
         <button onClick={()=>onMessage(resident)}
           style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:9,
@@ -108,7 +102,7 @@ export default function ResidentsPage() {
   const [loading, setLoading]     = useState(true);
   const [loc, setLoc]             = useState("");
   const [search, setSearch]       = useState("");
-  const [msgTarget, setMsgTarget] = useState(null); // guide to message
+  const [msgTarget, setMsgTarget] = useState(null);
   const [msgText,   setMsgText]   = useState("");
   const [sending,   setSending]   = useState(false);
 
@@ -129,7 +123,6 @@ export default function ResidentsPage() {
   const sendMessage = async () => {
     if (!msgText.trim() || !msgTarget) return;
     setSending(true);
-    // msgTarget is a ResidentProfile — user._id is the actual User ID needed for chat
     const rid = msgTarget.user?._id || msgTarget.user || msgTarget._id;
     try {
       const { data } = await chatAPI.createConversation(rid);
@@ -139,7 +132,6 @@ export default function ResidentsPage() {
       setMsgTarget(null);
       navigate(`/chat?resident=${rid}`);
     } catch(e) {
-      console.error('[Message] Failed:', e.response?.status, e.response?.data);
       toast.error(e.response?.data?.message || "Failed to send message");
     } finally { setSending(false); }
   };
@@ -156,8 +148,6 @@ export default function ResidentsPage() {
     <div style={{background:"#f0f4f8",minHeight:"100vh",fontFamily:"Inter,system-ui,sans-serif"}}>
       <div className="wrap" style={{paddingTop:32,paddingBottom:48}}>
         <p style={{fontSize:13,color:"#64748b",margin:"0 0 24px"}}>Connect with locals who can help you settle into Hyderabad</p>
-
-        {/* Search */}
         <div style={{position:"relative",maxWidth:400,marginBottom:24}}>
           <Search style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",width:14,height:14,color:"#94a3b8"}}/>
           <input value={search} onChange={e=>setSearch(e.target.value)}
@@ -165,8 +155,6 @@ export default function ResidentsPage() {
             style={{width:"100%",height:44,paddingLeft:38,paddingRight:14,border:"1.5px solid #e2e8f0",borderRadius:10,
               fontSize:13,background:"white",outline:"none",boxSizing:"border-box"}}/>
         </div>
-
-        {/* Area filters */}
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
           <span style={{fontSize:12,fontWeight:700,color:"#94a3b8"}}>Area:</span>
           {AREAS.map(a=>(
@@ -177,7 +165,6 @@ export default function ResidentsPage() {
             </button>
           ))}
         </div>
-
         {loading ? <div style={{textAlign:"center",padding:60}}><LoadingSpinner/></div> : (
           <>
             <p style={{fontSize:13,color:"#64748b",margin:"0 0 16px"}}>
@@ -194,61 +181,134 @@ export default function ResidentsPage() {
       <style>{`@media(max-width:900px){.guides-grid{grid-template-columns:1fr !important;}}`}</style>
     </div>
 
-    {/* ── Message Compose Modal ── */}
+    <MessageModal
+      target={msgTarget}
+      text={msgText}
+      onText={setMsgText}
+      sending={sending}
+      onSend={sendMessage}
+      onClose={()=>setMsgTarget(null)}
+    />
+    </>
+  );
+}
+
+/* ─── Shared Message Compose Modal ─────────────────────────────────────────── */
+export function MessageModal({ target, text, onText, sending, onSend, onClose }) {
+  const taRef = useRef(null);
+  const u = target ? (target.user || target) : null;
+  const location = target ? (target.area || u?.location || "Hyderabad") : "";
+  const conn = target?.connectionToArea || u?.connectionToArea;
+  const connLabel = {
+    local_resident:"Local Resident",student:"Student",employee:"Employee",
+    business_owner:"Business Owner",other:"Other"
+  }[conn] || "Community Member";
+
+  const AV_COLORS = ["#2563eb","#7c3aed","#0891b2","#16a34a","#d97706","#dc2626","#db2777","#0f766e"];
+  const avColor = n => AV_COLORS[(n?.charCodeAt(0)||0) % AV_COLORS.length];
+
+  // Ctrl/Cmd+Enter to send
+  const onKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && text.trim() && !sending) {
+      onSend();
+    }
+    if (e.key === "Escape") onClose();
+  };
+
+  return (
     <AnimatePresence>
-      {msgTarget && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",display:"flex",
-          alignItems:"center",justifyContent:"center",zIndex:300,padding:16}}
-          onClick={e=>{if(e.target===e.currentTarget)setMsgTarget(null);}}>
-          <motion.div initial={{opacity:0,scale:0.96,y:12}} animate={{opacity:1,scale:1,y:0}}
-            exit={{opacity:0,scale:0.96,y:12}} transition={{duration:0.18}}
-            style={{background:"white",borderRadius:18,padding:"24px",width:"100%",maxWidth:440,
-              boxShadow:"0 20px 60px rgba(0,0,0,0.18)",fontFamily:"Inter,system-ui,sans-serif"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-              <div>
-                <h3 style={{fontSize:16,fontWeight:800,color:"#0f172a",margin:"0 0 2px"}}>
-                  Message {(msgTarget.user||msgTarget).name}
-                </h3>
-                <p style={{fontSize:12,color:"#94a3b8",margin:0}}>
-                  Local Guide · {msgTarget.area||(msgTarget.user||msgTarget).location||"Hyderabad"}
-                </p>
+      {target && (
+        <div
+          style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",
+            display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:16,backdropFilter:"blur(2px)"}}
+          onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+          <motion.div
+            initial={{opacity:0,scale:0.95,y:16}}
+            animate={{opacity:1,scale:1,y:0}}
+            exit={{opacity:0,scale:0.95,y:16}}
+            transition={{duration:0.18,ease:[0.16,1,0.3,1]}}
+            style={{background:"white",borderRadius:20,width:"100%",maxWidth:460,
+              boxShadow:"0 24px 80px rgba(0,0,0,0.22)",fontFamily:"Inter,system-ui,sans-serif",overflow:"hidden"}}>
+
+            {/* Header */}
+            <div style={{padding:"20px 22px 16px",borderBottom:"1px solid #f1f5f9",
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:44,height:44,borderRadius:"50%",background:avColor(u?.name),
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  color:"white",fontSize:17,fontWeight:800,flexShrink:0}}>
+                  {u?.name?.charAt(0)}
+                </div>
+                <div>
+                  <p style={{fontSize:15,fontWeight:800,color:"#0f172a",margin:0}}>{u?.name}</p>
+                  <p style={{fontSize:12,color:"#64748b",margin:"2px 0 0",display:"flex",alignItems:"center",gap:4}}>
+                    <MapPin style={{width:10,height:10}}/> {location} · {connLabel}
+                  </p>
+                </div>
               </div>
-              <button onClick={()=>setMsgTarget(null)}
-                style={{background:"none",border:"none",cursor:"pointer",padding:4}}>
-                <X style={{width:18,height:18,color:"#64748b"}}/>
+              <button onClick={onClose}
+                style={{background:"#f8fafc",border:"none",cursor:"pointer",
+                  width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                  transition:"background 0.15s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#e2e8f0"}
+                onMouseLeave={e=>e.currentTarget.style.background="#f8fafc"}>
+                <X style={{width:15,height:15,color:"#64748b"}}/>
               </button>
             </div>
-            <textarea
-              value={msgText}
-              onChange={e=>setMsgText(e.target.value)}
-              placeholder={`Hi, I'm new to Hyderabad and need help…`}
-              rows={4}
-              style={{width:"100%",padding:"12px 14px",border:"1.5px solid #e2e8f0",borderRadius:12,
-                fontSize:13,lineHeight:1.65,resize:"vertical",outline:"none",boxSizing:"border-box",
-                fontFamily:"inherit",transition:"border-color 0.15s"}}
-              onFocus={e=>e.target.style.borderColor="#2563eb"}
-              onBlur={e=>e.target.style.borderColor="#e2e8f0"}
-              autoFocus
-            />
-            <div style={{display:"flex",gap:10,marginTop:14}}>
-              <button onClick={()=>setMsgTarget(null)}
-                style={{flex:1,padding:"11px",borderRadius:10,border:"1.5px solid #e2e8f0",
-                  background:"white",color:"#374151",fontSize:13,fontWeight:600,cursor:"pointer"}}>
-                Cancel
-              </button>
-              <button onClick={sendMessage} disabled={!msgText.trim()||sending}
-                style={{flex:2,padding:"11px",borderRadius:10,border:"none",
-                  background:!msgText.trim()||sending?"#e2e8f0":"#2563eb",
-                  color:!msgText.trim()||sending?"#94a3b8":"white",
-                  fontSize:13,fontWeight:700,cursor:!msgText.trim()||sending?"not-allowed":"pointer",
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
-                <Send style={{width:14,height:14}}/> {sending?"Sending…":"Send Message"}
-              </button>
+
+            {/* Body */}
+            <div style={{padding:"18px 22px 20px"}}>
+              <textarea
+                ref={taRef}
+                value={text}
+                onChange={e=>onText(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={`Hi ${u?.name?.split(" ")[0]}, I'm new to Hyderabad and need some help…`}
+                rows={5}
+                autoFocus
+                style={{width:"100%",padding:"13px 15px",border:"1.5px solid #e2e8f0",borderRadius:12,
+                  fontSize:13,lineHeight:1.7,resize:"none",outline:"none",boxSizing:"border-box",
+                  fontFamily:"inherit",color:"#0f172a",transition:"border-color 0.15s",
+                  background:"#fafafa"}}
+                onFocus={e=>e.target.style.borderColor="#2563eb"}
+                onBlur={e=>e.target.style.borderColor="#e2e8f0"}
+              />
+              <p style={{fontSize:11,color:"#c0c9d6",textAlign:"right",margin:"4px 0 0"}}>
+                {text.length > 0 ? `${text.length} chars` : "Ctrl+Enter to send"}
+              </p>
+
+              {/* Actions */}
+              <div style={{display:"flex",gap:10,marginTop:14}}>
+                <button onClick={onClose}
+                  style={{flex:1,padding:"11px",borderRadius:10,border:"1.5px solid #e2e8f0",
+                    background:"white",color:"#374151",fontSize:13,fontWeight:600,cursor:"pointer",
+                    transition:"all 0.15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                  onMouseLeave={e=>e.currentTarget.style.background="white"}>
+                  Cancel
+                </button>
+                <button
+                  onClick={onSend}
+                  disabled={!text.trim() || sending}
+                  style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+                    background:!text.trim()||sending?"#e2e8f0":"#2563eb",
+                    color:!text.trim()||sending?"#94a3b8":"white",
+                    fontSize:13,fontWeight:700,
+                    cursor:!text.trim()||sending?"not-allowed":"pointer",
+                    display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+                    transition:"all 0.15s",boxShadow:!text.trim()||sending?"none":"0 2px 10px rgba(37,99,235,0.3)"}}>
+                  {sending
+                    ? <><span style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",
+                        borderTopColor:"white",borderRadius:"50%",display:"inline-block",
+                        animation:"spin 0.7s linear infinite"}}/> Sending…</>
+                    : <><Send style={{width:14,height:14}}/> Send Message</>
+                  }
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
       )}
     </AnimatePresence>
-    </>
   );
 }

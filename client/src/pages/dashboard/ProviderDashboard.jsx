@@ -25,7 +25,7 @@ function isRealImage(url) {
 
 
 /* ── constants ── */
-const CATS = ["Medical","Clinics","Grocery Stores","Restaurants","Hostels","Pharmacies","Education","Transportation"];
+const CATS = ["Medical","Grocery Stores","Restaurants","Hostels","Pharmacies","Education","Transportation"];
 const LOCS = ["Bachupally","Miyapur","Secunderabad"];
 const TABS = ["Services","Bookings","Analytics"];
 

@@ -10,8 +10,7 @@ import { LoadingSpinner } from "../components/ui/Cards";
 // Category-appropriate fallback images for the detail page hero
 const DETAIL_CAT_IMGS = {
   "Restaurants":    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=600&fit=crop",
-  "Clinics":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=1200&h=600&fit=crop",
-  "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=1200&h=600&fit=crop",
+ "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=1200&h=600&fit=crop",
   "Grocery Stores": "https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=1200&h=600&fit=crop",
   "Pharmacies":     "https://images.unsplash.com/photo-1583912086096-8c60d75a537f?w=1200&h=600&fit=crop",
   "Education":      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&h=600&fit=crop",
@@ -19,6 +18,8 @@ const DETAIL_CAT_IMGS = {
   "Salons":         "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1200&h=600&fit=crop",
   "Laundry":        "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=1200&h=600&fit=crop",
   "Banks":          "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=1200&h=600&fit=crop",
+  "Hospitals":      "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&h=600&fit=crop",
+  "Medical":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=1200&h=600&fit=crop",
 };
 const IMG = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&h=600&fit=crop";
 
@@ -71,17 +72,32 @@ function Modal({ show, onClose, title, children }) {
   );
 }
 
-function BookingModal({ show, onClose, svc, onBook, sub }) {
-  const [step, setStep] = useState(0);
-  const [booking, setB] = useState({ date:"", time:"", notes:"" });
+function BookingModal({ show, onClose, svc, onBook }) {
+  const [step, setStep]         = useState(0);
+  const [booking, setB]         = useState({ date:"", time:"", notes:"" });
+  const [submitting, setSubmit] = useState(false);
+  const [bookErr, setBookErr]   = useState("");
   const steps = ["Date", "Time", "Notes", "Confirm"];
 
-  const next = () => setStep(s => Math.min(s+1, steps.length-1));
-  const prev = () => setStep(s => Math.max(s-1, 0));
+  // Reset every time the modal opens
+  useEffect(() => {
+    if (show) { setStep(0); setB({ date:"", time:"", notes:"" }); setSubmit(false); setBookErr(""); }
+  }, [show]);
 
-  const submit = (e) => {
-    e.preventDefault();
-    onBook(booking);
+  const next = () => { setBookErr(""); setStep(s => Math.min(s+1, steps.length-1)); };
+  const prev = () => { setBookErr(""); setStep(s => Math.max(s-1, 0)); };
+
+  const confirm = async () => {
+    setSubmit(true);
+    setBookErr("");
+    try {
+      await onBook(booking);   // onBook handles toast + closing modal
+    } catch (err) {
+      // onBook re-throws on error so we can stay on the confirmation page
+      setBookErr(err?.response?.data?.message || err?.message || "Booking failed. Please try again.");
+    } finally {
+      setSubmit(false);
+    }
   };
 
   return (
@@ -101,57 +117,82 @@ function BookingModal({ show, onClose, svc, onBook, sub }) {
       <p style={{ fontSize:12,fontWeight:700,color:"#64748b",textAlign:"center",marginBottom:16,textTransform:"uppercase",letterSpacing:"0.5px" }}>
         Step {step+1}: {steps[step]}
       </p>
-      <form onSubmit={submit} style={{ display:"flex",flexDirection:"column",gap:14 }}>
-        {step === 0 && (
-          <div>
-            <label className="lbl">Pick a Date</label>
-            <input type="date" required value={booking.date} onChange={e => setB({...booking,date:e.target.value})}
-              min={new Date().toISOString().split("T")[0]} className="field" />
-          </div>
-        )}
-        {step === 1 && (
-          <div>
-            <label className="lbl">Pick a Time</label>
-            <input type="time" required value={booking.time} onChange={e => setB({...booking,time:e.target.value})} className="field" />
-          </div>
-        )}
-        {step === 2 && (
-          <div>
-            <label className="lbl">Notes <span style={{ color:"#94a3b8",fontWeight:400 }}>(optional)</span></label>
-            <textarea value={booking.notes} onChange={e => setB({...booking,notes:e.target.value})}
-              className="field" style={{ resize:"none" }} rows={3} placeholder="Any special requests or instructions…" />
-          </div>
-        )}
-        {step === 3 && (
-          <div style={{ background:"#f8fafc",borderRadius:12,padding:"16px" }}>
-            <p style={{ fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:10 }}>Booking Summary</p>
-            <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
-              {[["Service",svc?.title],["Date",booking.date],["Time",booking.time],["Notes",booking.notes||"—"]].map(([l,v]) => (
-                <div key={l} style={{ display:"flex",justifyContent:"space-between",fontSize:12 }}>
-                  <span style={{ color:"#64748b" }}>{l}</span>
-                  <span style={{ fontWeight:600,color:"#0f172a" }}>{v}</span>
-                </div>
-              ))}
+
+      {/* Steps 0-2 use a form for keyboard submit; step 3 is review-only */}
+      {step < 3 ? (
+        <form onSubmit={e => { e.preventDefault(); next(); }} style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          {step === 0 && (
+            <div>
+              <label className="lbl">Pick a Date</label>
+              <input type="date" required value={booking.date} onChange={e => setB({...booking,date:e.target.value})}
+                min={new Date().toISOString().split("T")[0]} className="field" />
             </div>
-          </div>
-        )}
-        <div style={{ display:"flex",gap:10,paddingTop:4 }}>
-          {step > 0 && (
-            <button type="button" onClick={prev} className="btn btn-ghost" style={{ flex:1 }}>Back</button>
           )}
-          {step < steps.length-1 ? (
-            <button type="button" onClick={next} disabled={
+          {step === 1 && (
+            <div>
+              <label className="lbl">Pick a Time</label>
+              <input type="time" required value={booking.time} onChange={e => setB({...booking,time:e.target.value})} className="field" />
+            </div>
+          )}
+          {step === 2 && (
+            <div>
+              <label className="lbl">Notes <span style={{ color:"#94a3b8",fontWeight:400 }}>(optional)</span></label>
+              <textarea value={booking.notes} onChange={e => setB({...booking,notes:e.target.value})}
+                className="field" style={{ resize:"none" }} rows={3} placeholder="Any special requests or instructions…" />
+            </div>
+          )}
+          <div style={{ display:"flex",gap:10,paddingTop:4 }}>
+            {step > 0 && (
+              <button type="button" onClick={prev} className="btn btn-ghost" style={{ flex:1 }}>Back</button>
+            )}
+            <button type="submit" disabled={
               (step===0 && !booking.date)||(step===1 && !booking.time)
             } className="btn btn-primary" style={{ flex:1,justifyContent:"center" }}>
               Next <ChevronRight style={{ width:14,height:14 }} />
             </button>
-          ) : (
-            <button type="submit" disabled={sub} className="btn btn-primary" style={{ flex:1,justifyContent:"center" }}>
-              {sub ? "Booking…" : "Confirm Booking"}
-            </button>
+          </div>
+        </form>
+      ) : (
+        /* ── Step 3: Confirmation — no form, explicit button click only ── */
+        <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <div style={{ background:"#f8fafc",borderRadius:12,padding:"16px",border:"1.5px solid #e2e8f0" }}>
+            <p style={{ fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12 }}>Booking Summary</p>
+            <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+              {[["Service",svc?.title],["Date",booking.date],["Time",booking.time],["Notes",booking.notes||"—"]].map(([l,v]) => (
+                <div key={l} style={{ display:"flex",justifyContent:"space-between",fontSize:13,gap:16 }}>
+                  <span style={{ color:"#64748b",flexShrink:0 }}>{l}</span>
+                  <span style={{ fontWeight:600,color:"#0f172a",textAlign:"right" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {bookErr && (
+            <div style={{ background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,
+              padding:"10px 14px",fontSize:12,color:"#dc2626",lineHeight:1.5 }}>
+              {bookErr}
+            </div>
           )}
+
+          <div style={{ display:"flex",gap:10,paddingTop:4 }}>
+            <button type="button" onClick={prev} disabled={submitting}
+              className="btn btn-ghost" style={{ flex:1 }}>
+              Back
+            </button>
+            <button type="button" onClick={confirm} disabled={submitting}
+              className="btn btn-primary" style={{ flex:2,justifyContent:"center",gap:8 }}>
+              {submitting ? (
+                <>
+                  <span style={{ width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",
+                    borderTopColor:"white",borderRadius:"50%",display:"inline-block",
+                    animation:"spin 0.7s linear infinite",flexShrink:0 }}/>
+                  Booking…
+                </>
+              ) : "Confirm Booking"}
+            </button>
+          </div>
         </div>
-      </form>
+      )}
     </Modal>
   );
 }
@@ -473,18 +514,21 @@ export default function ServiceDetailPage() {
 
   const handleBook = async (booking) => {
     if (!user) { nav("/login"); return; }
-    setSub(true);
     try {
       await bookingAPI.create({ serviceId:id, ...booking, recommendedBy:svc.recommendedBy?._id });
       toast.success("Booking created! Track it in My Bookings.");
       setShowB(false);
     } catch (err) {
       if (err.response?.status === 409) {
-        toast.error("You already have a booking for this service at this date and time.");
+        const msg = "You already have a booking for this service at this date and time.";
+        toast.error(msg);
+        throw new Error(msg);
       } else {
-        toast.error(err.response?.data?.message || "Booking failed");
+        const msg = err.response?.data?.message || "Booking failed";
+        toast.error(msg);
+        throw err;
       }
-    } finally { setSub(false); }
+    }
   };
 
   const handleRev = async (e) => {
@@ -762,7 +806,7 @@ export default function ServiceDetailPage() {
       </div>
 
       {/* Booking Modal */}
-      <BookingModal show={showB} onClose={() => setShowB(false)} svc={svc} onBook={handleBook} sub={sub} />
+      <BookingModal show={showB} onClose={() => setShowB(false)} svc={svc} onBook={handleBook} />
 
       {/* Review Modal — with inline AI feedback */}
       <Modal show={showR} onClose={closeReviewModal} title="Write a Review">

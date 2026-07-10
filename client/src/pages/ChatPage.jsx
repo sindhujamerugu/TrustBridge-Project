@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useParams } from "react-router-dom";
 import { Send, MessageCircle, Search, MoreVertical } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -50,6 +50,7 @@ export default function ChatPage() {
   const { user }                                        = useAuth();
   const { socket, joinConversation, leaveConversation } = useSocket();
   const [sp]                  = useSearchParams();
+  const { conversationId }    = useParams();   // from /chat/:conversationId
   const [convs,  setConvs]    = useState([]);
   const [active, setActive]   = useState(null);
   const [msgs,   setMsgs]     = useState([]);
@@ -67,6 +68,33 @@ export default function ChatPage() {
       const list = data.data || [];
       setConvs(list);
 
+      // Priority 1: direct conversation ID from URL path (/chat/:conversationId)
+      if (conversationId) {
+        const found = list.find(c => c._id === conversationId);
+        if (found) {
+          selectConv(found);
+        } else {
+          // Conversation exists in DB but wasn't in our list yet — fetch it directly
+          chatAPI.getMessages(conversationId)
+            .then(() => {
+              // If messages load OK the conversation is valid; reload the list
+              return chatAPI.getConversations();
+            })
+            .then(({ data: fresh }) => {
+              const freshList = fresh.data || [];
+              setConvs(freshList);
+              const target = freshList.find(c => c._id === conversationId);
+              if (target) selectConv(target);
+            })
+            .catch(() => {
+              // Conversation doesn't exist or not authorized — just show list
+              if (list.length > 0) selectConv(list[0]);
+            });
+        }
+        return;
+      }
+
+      // Priority 2: ?resident= query param (from Message button flow)
       const rid = sp.get("resident");
       if (rid) {
         chatAPI.createConversation(rid)
@@ -83,9 +111,11 @@ export default function ChatPage() {
             if (found) selectConv(found);
             else if (list.length > 0) selectConv(list[0]);
           });
-      } else if (list.length > 0) {
-        selectConv(list[0]);
+        return;
       }
+
+      // Default: open most recent conversation
+      if (list.length > 0) selectConv(list[0]);
     }).catch(() => {}).finally(() => setLd(false));
   }, []);
 
@@ -93,7 +123,8 @@ export default function ChatPage() {
   useEffect(() => {
     if (!socket || !active) return;
     const onMsg  = m => {
-      setMsgs(p => [...p, m]);
+      // Skip if we already have this message (sender added it optimistically)
+      setMsgs(p => p.some(x => x._id === m._id) ? p : [...p, m]);
       // Update conversation preview + re-sort
       setConvs(prev => {
         const updated = prev.map(c =>
@@ -144,13 +175,15 @@ export default function ChatPage() {
     setText("");
     try {
       const { data } = await chatAPI.sendMessage(active._id, { content: t });
+      // Use the real message returned by the server — socket will broadcast the same
+      // _id, so the dedup check in onMsg will skip it for the sender.
       const msg = data?.data || {
         _id: String(Date.now()),
         content: t,
         sender: { _id: user?._id || user?.id, name: user?.name },
         createdAt: new Date().toISOString(),
       };
-      setMsgs(p => [...p, msg]);
+      setMsgs(p => p.some(x => x._id === msg._id) ? p : [...p, msg]);
       socket?.emit("stop_typing", { conversationId: active._id });
     } catch {
       toast.error("Failed to send");

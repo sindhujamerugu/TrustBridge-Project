@@ -12,8 +12,7 @@ import { LoadingSpinner } from "../components/ui/Cards";
 // ─── category config ──────────────────────────────────────────────────────────
 const CAT_CONFIG = {
   "Restaurants":     { emoji:"🍽️", color:"#ef4444", bg:"#fef2f2", border:"#fecaca", priceLabel:"Average Cost",      sortColor:"#ef4444" },
-  "Clinics":         { emoji:"🏥", color:"#2563eb", bg:"#eff6ff", border:"#bfdbfe", priceLabel:"Consultation Fee",   sortColor:"#2563eb" },
-  "Hostels":         { emoji:"🏠", color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe", priceLabel:"Starting From",      sortColor:"#7c3aed" },
+ "Hostels":         { emoji:"🏠", color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe", priceLabel:"Starting From",      sortColor:"#7c3aed" },
   "Grocery Stores":  { emoji:"🛒", color:"#16a34a", bg:"#f0fdf4", border:"#bbf7d0", priceLabel:"Delivery Available", sortColor:"#16a34a" },
   "Education":       { emoji:"📚", color:"#0891b2", bg:"#ecfeff", border:"#a5f3fc", priceLabel:"Course Fee",         sortColor:"#0891b2" },
   "Transportation":  { emoji:"🚗", color:"#d97706", bg:"#fffbeb", border:"#fde68a", priceLabel:"Per Ride",           sortColor:"#d97706" },
@@ -21,6 +20,8 @@ const CAT_CONFIG = {
   "Laundry":         { emoji:"👕", color:"#0d9488", bg:"#f0fdfa", border:"#99f6e4", priceLabel:"Per KG",             sortColor:"#0d9488" },
   "Banks":           { emoji:"🏦", color:"#1e40af", bg:"#eff6ff", border:"#bfdbfe", priceLabel:"Free Service",       sortColor:"#1e40af" },
   "Pharmacies":      { emoji:"💊", color:"#dc2626", bg:"#fef2f2", border:"#fecaca", priceLabel:"Delivery Available", sortColor:"#dc2626" },
+  "Hospitals":       { emoji:"🏥", color:"#0369a1", bg:"#f0f9ff", border:"#bae6fd", priceLabel:"Consultation Fee",  sortColor:"#0369a1" },
+  "Medical":         { emoji:"⚕️", color:"#0891b2", bg:"#ecfeff", border:"#a5f3fc", priceLabel:"Consultation Fee",  sortColor:"#0891b2" },
 };
 const DEFAULT_CAT = { emoji:"🏢", color:"#64748b", bg:"#f8fafc", border:"#e2e8f0", priceLabel:"Price", sortColor:"#64748b" };
 const getCat = (c) => CAT_CONFIG[c] || DEFAULT_CAT;
@@ -36,8 +37,7 @@ const SORT_OPTIONS = [
 // ─── fallback images per category ────────────────────────────────────────────
 const CAT_IMGS = {
   "Restaurants":    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=400&fit=crop",
-  "Clinics":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&h=400&fit=crop",
-  "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600&h=400&fit=crop",
+ "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600&h=400&fit=crop",
   "Grocery Stores": "https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=600&h=400&fit=crop",
   "Pharmacies":     "https://images.unsplash.com/photo-1583912086096-8c60d75a537f?w=600&h=400&fit=crop",
   "Education":      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&h=400&fit=crop",
@@ -45,6 +45,8 @@ const CAT_IMGS = {
   "Salons":         "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&h=400&fit=crop",
   "Laundry":        "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=600&h=400&fit=crop",
   "Banks":          "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=600&h=400&fit=crop",
+  "Hospitals":      "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&h=400&fit=crop",
+  "Medical":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&h=400&fit=crop",
 };
 // Generic business fallback — not a house/property
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop";

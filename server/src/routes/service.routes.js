@@ -50,7 +50,7 @@ async function uploadImage(buffer, mimetype, folder = 'trustbridge/services') {
 const router = express.Router();
 
 export const CATEGORIES = [
-  'Medical', 'Hospitals', 'Clinics', 'Pharmacies',
+  'Medical', 'Hospitals', 'Pharmacies',
   'Grocery Stores', 'Supermarkets', 'Restaurants', 'Cafes',
   'Education', 'Coaching Centers', 'Transportation',
   'Hostels', 'PGs', 'Rentals', 'Emergency Services',

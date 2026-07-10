@@ -106,20 +106,30 @@ router.post('/register', asyncHandler(async (req, res) => {
     name, email, password, role, phone, location, city: city || 'Hyderabad',
   });
 
-  if (role === 'resident') {
-    // Save connection to area from registration form
-    const connectionToArea = req.body.connection
-      ? req.body.connection.toLowerCase().replace(/ /g, '_')
-      : 'local_resident';
-    await ResidentProfile.create({ user: user._id, area: location || '', connectionToArea });
-  } else if (role === 'provider') {
-    await ProviderProfile.create({
-      user: user._id,
-      businessName: req.body.businessName || `${name}'s Business`,
-      fullName: name,
-      phone: phone || '',
-      address: location || '',
-    });
+  try {
+    if (role === 'resident') {
+      const connectionToArea = req.body.connection
+        ? req.body.connection.toLowerCase().replace(/ /g, '_')
+        : 'local_resident';
+      await ResidentProfile.create({ user: user._id, area: location || '', connectionToArea });
+    } else if (role === 'provider') {
+      await ProviderProfile.create({
+        user: user._id,
+        businessName: req.body.businessName || `${name}'s Business`,
+        fullName: name,
+        phone: phone || '',
+        address: location || '',
+      });
+    }
+  } catch (profileErr) {
+    // Roll back: delete the just-created User so the email isn't permanently locked
+    await User.findByIdAndDelete(user._id).catch(() => {});
+    throw new AppError(
+      profileErr.message?.includes('validation failed')
+        ? `Profile creation failed: ${profileErr.message}`
+        : 'Registration failed. Please try again.',
+      400
+    );
   }
 
   const { accessToken, refreshToken } = generateTokens(user._id);

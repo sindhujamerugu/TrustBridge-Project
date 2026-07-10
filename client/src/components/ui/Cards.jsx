@@ -1,12 +1,11 @@
-﻿import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Star, MapPin, Shield, ArrowRight, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getImageUrl } from "../../services/api";
 
 const CAT_FALLBACKS = {
   "Restaurants":    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=400&fit=crop",
-  "Clinics":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&h=400&fit=crop",
-  "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600&h=400&fit=crop",
+ "Hostels":        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600&h=400&fit=crop",
   "Grocery Stores": "https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=600&h=400&fit=crop",
   "Pharmacies":     "https://images.unsplash.com/photo-1583912086096-8c60d75a537f?w=600&h=400&fit=crop",
   "Education":      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&h=400&fit=crop",
@@ -14,6 +13,8 @@ const CAT_FALLBACKS = {
   "Salons":         "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&h=400&fit=crop",
   "Laundry":        "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=600&h=400&fit=crop",
   "Banks":          "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=600&h=400&fit=crop",
+  "Hospitals":      "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&h=400&fit=crop",
+  "Medical":        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&h=400&fit=crop",
 };
 // Generic business fallback — not a house/property
 const IMG = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop";

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { userAPI, chatAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { LoadingSpinner } from "../components/ui/Cards";
+import { MessageModal } from "./ResidentsPage";
 
 const AV_COLORS = ["#2563eb","#7c3aed","#0891b2","#16a34a","#d97706","#dc2626","#db2777","#0f766e"];
 const av = n => AV_COLORS[(n?.charCodeAt(0)||0) % AV_COLORS.length];
@@ -33,8 +34,11 @@ export default function GuideProfilePage() {
   const { id }   = useParams();
   const { user } = useAuth();
   const nav      = useNavigate();
-  const [guide, setGuide] = useState(null);
-  const [ld, setLd]       = useState(true);
+  const [guide, setGuide]       = useState(null);
+  const [ld, setLd]             = useState(true);
+  const [msgOpen,  setMsgOpen]  = useState(false);
+  const [msgText,  setMsgText]  = useState("");
+  const [sending,  setSending]  = useState(false);
 
   useEffect(()=>{
     userAPI.getResident(id)
@@ -43,10 +47,26 @@ export default function GuideProfilePage() {
       .finally(()=>setLd(false));
   },[id]);
 
-  const handleMessage = async () => {
-    if (!user){nav("/login");return;}
-    try{ await chatAPI.createConversation(id); }catch{}
-    nav(`/chat?resident=${id}`);
+  const openMessage = () => {
+    if (!user) { nav("/login"); return; }
+    setMsgText("");
+    setMsgOpen(true);
+  };
+
+  const sendMessage = async () => {
+    if (!msgText.trim()) return;
+    setSending(true);
+    const rid = guide?.user?._id || guide?.user || id;
+    try {
+      const { data } = await chatAPI.createConversation(rid);
+      const convId   = data.data._id;
+      await chatAPI.sendMessage(convId, { content: msgText.trim() });
+      toast.success("Message sent!");
+      setMsgOpen(false);
+      nav(`/chat?resident=${rid}`);
+    } catch(e) {
+      toast.error(e.response?.data?.message || "Failed to send message");
+    } finally { setSending(false); }
   };
 
   if (ld) return <LoadingSpinner size="lg"/>;
@@ -70,6 +90,7 @@ export default function GuideProfilePage() {
     ["Finding accommodation","Grocery & markets","Transport routes","Local documentation","Medical clinics","Community events"];
 
   return (
+    <>
     <div style={{background:"#f0f4f8",minHeight:"100vh",fontFamily:"Inter,system-ui,sans-serif"}}>
       {/* Back nav */}
       <div style={{background:"white",borderBottom:"1px solid #e2e8f0",padding:"14px 0"}}>
@@ -189,7 +210,7 @@ export default function GuideProfilePage() {
                   </p>
                 </div>
               </div>
-              <button onClick={handleMessage}
+              <button onClick={openMessage}
                 style={{width:"100%",padding:"12px",borderRadius:10,background:"#2563eb",color:"white",
                   border:"none",fontSize:14,fontWeight:700,cursor:"pointer",
                   display:"flex",alignItems:"center",justifyContent:"center",gap:8,
@@ -220,5 +241,15 @@ export default function GuideProfilePage() {
       </div>
       <style>{`@media(max-width:900px){.gp-grid{grid-template-columns:1fr !important;}}`}</style>
     </div>
+
+    <MessageModal
+      target={msgOpen ? guide : null}
+      text={msgText}
+      onText={setMsgText}
+      sending={sending}
+      onSend={sendMessage}
+      onClose={()=>setMsgOpen(false)}
+    />
+    </>
   );
 }

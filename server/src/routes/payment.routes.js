@@ -81,7 +81,7 @@ router.post('/create-order', protect, authorize('provider'), asyncHandler(async 
       customer_phone: req.user.phone || '9999999999',
       customer_name: req.user.name || 'TrustBridge User',
     },
-    order_meta: { notify_url: (process.env.SERVER_URL || 'http://localhost:5000') + '/api/payments/webhook' },
+    order_meta: { notify_url: process.env.SERVER_URL + '/api/payments/webhook' },
     order_note: 'TrustBridge ' + planDetails.name + ' subscription',
   };
 

@@ -5,8 +5,8 @@ const providerProfileSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     businessName: { type: String, required: true },
     fullName: { type: String, required: true },
-    phone: { type: String, required: true },
-    address: { type: String, required: true },
+    phone:   { type: String, default: '' },
+    address: { type: String, default: '' },
     aadhaarNumber: { type: String, select: false },
     gstNumber: String,
     documents: {

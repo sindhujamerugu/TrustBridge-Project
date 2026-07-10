@@ -66,7 +66,8 @@ export default function App() {
               <Route path="/refund"          element={<RefundPage />} />
 
               {/* Protected */}
-              <Route path="/chat"            element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+              <Route path="/chat"                element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+              <Route path="/chat/:conversationId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
               <Route path="/notifications"   element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
               <Route path="/activity"        element={<ProtectedRoute><RecentActivityPage /></ProtectedRoute>} />
               <Route path="/bookings"        element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
