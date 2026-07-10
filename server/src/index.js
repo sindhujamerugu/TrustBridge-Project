@@ -71,11 +71,8 @@ app.use(
 app.use((req, res, next) => {
   res.removeHeader("Cross-Origin-Resource-Policy");
   res.removeHeader("Cross-Origin-Opener-Policy");
-
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
-
-  console.log("CORS IMAGE HEADERS APPLIED");
   next();
 });
 
@@ -83,8 +80,9 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Limit JSON body size and urlencoded payload to prevent DoS
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(cookieParser());
 
 // Serve uploaded files (dev mode — no Cloudinary needed)

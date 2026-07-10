@@ -12,12 +12,14 @@ const router = express.Router();
 router.get('/', asyncHandler(async (req, res) => {
   const { location, category, search } = req.query;
   const filter = {};
-  if (location) filter.location = new RegExp(location, 'i');
+  // Escape user input before building regex to prevent ReDoS
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (location) filter.location = new RegExp(esc(location), 'i');
   if (category) filter.category = category;
   if (search) {
     filter.$or = [
-      { title: new RegExp(search, 'i') },
-      { content: new RegExp(search, 'i') },
+      { title:   new RegExp(esc(search), 'i') },
+      { content: new RegExp(esc(search), 'i') },
     ];
   }
 

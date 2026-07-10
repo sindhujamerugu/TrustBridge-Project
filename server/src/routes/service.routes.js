@@ -193,8 +193,12 @@ router.get('/', asyncHandler(async (req, res) => {
   const { category, location, search, featured, minRating, sort } = req.query;
   const filter = { isVisible: true, isActive: true };
 
-  if (category) filter.category = category;
-  if (location) filter.location = new RegExp(location, 'i');
+  if (category) filter.category = String(category);
+  if (location) {
+    // Escape user input before building regex to prevent ReDoS
+    const escaped = String(location).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.location = new RegExp(escaped, 'i');
+  }
   if (featured === 'true') filter.isFeatured = true;
   if (minRating) filter.averageRating = { $gte: Number(minRating) };
   if (search) filter.$text = { $search: search };
@@ -245,14 +249,27 @@ router.post('/', protect, authorize('provider'), uploadFields, asyncHandler(asyn
     );
   }
 
-  // New workflow: service starts as 'draft', not immediately published
+  // Explicit allowlist — never spread req.body directly into Model.create()
+  // to prevent remote property injection / prototype pollution
   const service = await Service.create({
-    ...req.body,
-    provider: req.user._id,
+    title:         String(req.body.title         || '').trim(),
+    description:   String(req.body.description   || '').trim(),
+    category:      String(req.body.category      || '').trim(),
+    subcategory:   String(req.body.subcategory   || '').trim(),
+    location:      String(req.body.location      || '').trim(),
+    address:       String(req.body.address       || '').trim(),
+    price:         Number(req.body.price)         || 0,
+    priceUnit:     String(req.body.priceUnit     || 'fixed').trim(),
+    contactNumber: String(req.body.contactNumber || '').trim(),
+    businessEmail: String(req.body.businessEmail || '').trim(),
+    website:       String(req.body.website       || '').trim(),
+    availability:  req.body.availability && typeof req.body.availability === 'object'
+                     ? req.body.availability : undefined,
+    provider:        req.user._id,
     providerProfile: profile?._id,
     images,
-    isVisible: false,
-    isFeatured: false,
+    isVisible:      false,
+    isFeatured:     false,
     workflowStatus: 'docs_pending',
   });
 
@@ -286,7 +303,7 @@ router.post('/:id/documents', protect, authorize('provider'), uploadFields, asyn
     try {
       const url = await uploadToCloudinary(fileObj.buffer, `trustbridge/service-docs/${docType}`);
       docSetPatch[`documents.${docType}`] = { url, verified: false };
-      console.log(`[ServiceDocs] Uploaded ${docType} → ${url}`);
+      console.log('[ServiceDocs] Uploaded ' + docType + ' → ' + url);
     } catch (err) {
       console.warn(`[ServiceDocs] Cloudinary failed for ${docType}:`, err.message);
       docSetPatch[`documents.${docType}`] = { url: `dev-placeholder-${docType}`, verified: false };
@@ -439,7 +456,7 @@ router.get('/:id/verification-status', protect, authorize('provider'), asyncHand
         docBuffers[docType] = Buffer.from(data);
         docMimes[docType]   = 'image/jpeg';
         hasDoc = true;
-        console.log(`[DocVerify] Re-fetched ${docType} from ${doc.url} — ${docBuffers[docType].length} bytes`);
+        console.log('[DocVerify] Re-fetched ' + docType + ' — ' + docBuffers[docType].length + ' bytes');
       } catch (e) {
         console.warn(`[DocVerify] Could not re-fetch ${docType}:`, e.message);
       }
@@ -522,7 +539,19 @@ router.put('/:id', protect, authorize('provider'), asyncHandler(async (req, res)
 
   const allowed = ['title', 'description', 'category', 'subcategory', 'location', 'address',
                    'price', 'priceUnit', 'availability', 'contactNumber', 'businessEmail', 'website'];
-  allowed.forEach(f => { if (req.body[f] !== undefined) service[f] = req.body[f]; });
+  // Explicit coercion per field type — prevents remote property injection
+  const numFields = new Set(['price']);
+  const objFields = new Set(['availability']);
+  for (const f of allowed) {
+    if (req.body[f] === undefined) continue;
+    if (numFields.has(f)) {
+      service[f] = Number(req.body[f]) || 0;
+    } else if (objFields.has(f)) {
+      if (req.body[f] && typeof req.body[f] === 'object') service[f] = req.body[f];
+    } else {
+      service[f] = String(req.body[f]).trim();
+    }
+  }
 
   // Critical change → put back under review
   if (criticalChanged) {

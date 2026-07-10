@@ -61,9 +61,11 @@ router.get('/users', asyncHandler(async (req, res) => {
   const filter = {};
   if (role) filter.role = role;
   if (search) {
+    // Escape user input before using in regex to prevent ReDoS
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     filter.$or = [
-      { name: new RegExp(search, 'i') },
-      { email: new RegExp(search, 'i') },
+      { name: new RegExp(escaped, 'i') },
+      { email: new RegExp(escaped, 'i') },
     ];
   }
 

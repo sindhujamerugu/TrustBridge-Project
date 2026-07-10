@@ -23,10 +23,16 @@ router.get('/me', protect, asyncHandler(async (req, res) => {
 
 // ── Update user basic info ────────────────────────────────────────────────────
 router.put('/me', protect, asyncHandler(async (req, res) => {
-  const allowed = ['name', 'phone', 'location', 'city', 'avatar'];
+  // Allowlist + explicit string coercion prevents prototype pollution /
+  // remote-property injection from req.body
+  const STRING_FIELDS = ['name', 'phone', 'location', 'city', 'avatar'];
   const updates = {};
-  allowed.forEach((f) => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
-  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+  for (const f of STRING_FIELDS) {
+    if (req.body[f] !== undefined && req.body[f] !== null) {
+      updates[f] = String(req.body[f]).trim();
+    }
+  }
+  const user = await User.findByIdAndUpdate(req.user._id, { $set: updates }, { new: true });
   res.json({ success: true, data: user });
 }));
 
@@ -60,9 +66,20 @@ router.post('/me/avatar', protect, upload.single('avatar'), asyncHandler(async (
 
 // ── Update resident community profile ─────────────────────────────────────────
 router.put('/me/community-profile', protect, asyncHandler(async (req, res) => {
-  const allowed = ['bio', 'connectionToArea', 'area', 'areasOfExpertise', 'languages', 'specialties'];
+  // Allowlist with explicit type coercion — prevents remote-property injection
   const updates = {};
-  allowed.forEach((f) => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
+  const strFields = ['bio', 'connectionToArea', 'area'];
+  const arrFields = ['areasOfExpertise', 'languages', 'specialties'];
+  for (const f of strFields) {
+    if (req.body[f] !== undefined && req.body[f] !== null) {
+      updates[f] = String(req.body[f]).trim();
+    }
+  }
+  for (const f of arrFields) {
+    if (Array.isArray(req.body[f])) {
+      updates[f] = req.body[f].map(v => String(v).trim()).filter(Boolean);
+    }
+  }
   const profile = await ResidentProfile.findOneAndUpdate(
     { user: req.user._id },
     { $set: updates },
@@ -98,7 +115,9 @@ router.get('/newcomers', asyncHandler(async (req, res) => {
 
   const filter = { role: 'newcomer', isActive: true };
   if (location) {
-    filter.location = new RegExp(location, 'i');
+    // Escape user input to prevent ReDoS
+    const escaped = String(location).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.location = new RegExp(escaped, 'i');
   }
 
   const newcomers = await User.find(filter)
