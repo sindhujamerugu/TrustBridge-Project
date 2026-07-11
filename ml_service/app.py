@@ -5,16 +5,18 @@ Endpoints:
   POST /relevance — review relevance check (vocabulary overlap)
   GET  /health    — health check
 """
-import os, pickle, re
+import os, joblib, re
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # ── load fake-review model ────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trustbridge_fake_review_model.pkl')
+# joblib is used instead of pickle: it is faster for numpy/sklearn objects and
+# avoids the arbitrary-code-execution risk that pickle.load() carries when the
+# model file is ever replaced with untrusted data.
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trustbridge_fake_review_model.pkl')
 model = None
 try:
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
+    model = joblib.load(MODEL_PATH)
     print(f"[ML] Model loaded → {MODEL_PATH}")
 except FileNotFoundError:
     print(f"[ML] WARNING: model not found at {MODEL_PATH}. Run train_model.py first.")

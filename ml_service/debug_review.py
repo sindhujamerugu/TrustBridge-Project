@@ -1,8 +1,8 @@
-import pickle, os
+import joblib, os
 
-model_path = os.path.join(os.path.dirname(__file__), 'trustbridge_fake_review_model.pkl')
-with open(model_path, 'rb') as f:
-    model = pickle.load(f)
+# joblib replaces pickle: safer for sklearn pipelines, no arbitrary code execution.
+model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trustbridge_fake_review_model.pkl')
+model = joblib.load(model_path)
 
 tests = [
     "The food changed my life. Every bite was pure perfection. Best restaurant in the universe.",

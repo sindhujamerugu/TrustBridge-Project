@@ -3,7 +3,7 @@ TrustBridge Fake Review Detection Model
 Trains on Yelp-style fake review patterns and saves trustbridge_fake_review_model.pkl
 Run once to regenerate: python train_model.py
 """
-import pickle, os
+import joblib, os
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -124,10 +124,9 @@ pipeline = Pipeline([
 
 pipeline.fit(cleaned, labels)
 
-# ── save ──────────────────────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trustbridge_fake_review_model.pkl')
-with open(MODEL_PATH, 'wb') as f:
-    pickle.dump(pipeline, f)
+# ── save — joblib replaces pickle for safer sklearn serialization ─────────────
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trustbridge_fake_review_model.pkl')
+joblib.dump(pipeline, MODEL_PATH)
 
 print(f"[ML] Model retrained → {MODEL_PATH}")
 print(f"     Fake examples: {len(FAKE_REVIEWS)}  |  Genuine examples: {len(GENUINE_REVIEWS)}\n")
