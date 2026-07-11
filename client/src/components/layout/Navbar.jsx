@@ -163,7 +163,7 @@ export default function Navbar() {
             <img
               src={logoImg}
               alt="TrustBridge"
-              style={{ height: 40, width: "auto", objectFit: "contain", display: "block" }}
+              style={{ height: 45, width: "auto", objectFit: "contain", display: "block" }}
             />
           </Link>
 
@@ -199,7 +199,7 @@ export default function Navbar() {
           </nav>
 
           {/* ── Search bar (center) ── */}
-          <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 340, position: "relative" }} className="hidden md:block">
+          <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 300, position: "relative" }} className="hidden md:block">
             <Search style={{
               position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
               width: 14, height: 14,
@@ -340,13 +340,13 @@ export default function Navbar() {
                 <Link to="/register" style={{
                   padding: "8px 18px", borderRadius: 99,
                   fontSize: 13.5, fontWeight: 700, color: "#fff",
-                  background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+                  background: "#2563eb",
                   textDecoration: "none",
-                  boxShadow: "0 2px 10px rgba(37,99,235,0.38)",
-                  transition: "all 0.15s",
+                  boxShadow: "0 1px 6px rgba(37,99,235,0.25), 0 1px 2px rgba(37,99,235,0.15)",
+                  transition: "background 0.18s, box-shadow 0.18s, transform 0.18s",
                 }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.45)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 10px rgba(37,99,235,0.38)"; e.currentTarget.style.transform = "none"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#1d4ed8"; e.currentTarget.style.boxShadow = "0 3px 10px rgba(37,99,235,0.3), 0 1px 3px rgba(37,99,235,0.18)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "#2563eb"; e.currentTarget.style.boxShadow = "0 1px 6px rgba(37,99,235,0.25), 0 1px 2px rgba(37,99,235,0.15)"; e.currentTarget.style.transform = "translateY(0)"; }}
                 >Get Started</Link>
               </>
             )}

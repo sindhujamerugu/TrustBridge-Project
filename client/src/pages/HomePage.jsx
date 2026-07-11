@@ -206,6 +206,154 @@ function JourneyCarousel() {
     </div>
   );
 }
+/* ──────────────────────────────────────────────────────────────
+   HERO IMAGE CAROUSEL
+────────────────────────────────────────────────────────────── */
+const HERO_SLIDES = [
+  {
+    step:"01", tag:"Verified Providers",
+    title:"Verified Service Providers",
+    desc:"Find identity-verified professionals trusted by the local community. Every listing is document-checked.",
+    color:"#2563eb", tagBg:"#dbeafe", tagColor:"#1d4ed8",
+    img:"https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=720&h=440&fit=crop&auto=format",
+  },
+  {
+    step:"02", tag:"Community Guides",
+    title:"Trusted Community Guides",
+    desc:"Connect with experienced local residents who know every street, service, and shortcut in your new city.",
+    color:"#059669", tagBg:"#dcfce7", tagColor:"#166534",
+    img:"https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=720&h=440&fit=crop&auto=format",
+  },
+  {
+    step:"03", tag:"AI Reviews",
+    title:"AI Verified Reviews",
+    desc:"Machine learning detects suspicious reviews and surfaces genuine, trustworthy feedback from real users.",
+    color:"#7c3aed", tagBg:"#ede9fe", tagColor:"#5b21b6",
+    img:"https://images.unsplash.com/photo-1677442136019-21780ecad995?w=720&h=440&fit=crop&auto=format",
+  },
+  {
+    step:"04", tag:"Emergency Help",
+    title:"Emergency Assistance",
+    desc:"Quickly access trusted emergency contacts, nearby hospitals, police stations, and essential services.",
+    color:"#dc2626", tagBg:"#fee2e2", tagColor:"#991b1b",
+    img:"https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=720&h=440&fit=crop&auto=format",
+  },
+  {
+    step:"05", tag:"Local Services",
+    title:"Discover Local Services",
+    desc:"Explore verified restaurants, hostels, clinics, and transport options around your location with confidence.",
+    color:"#d97706", tagBg:"#fef3c7", tagColor:"#92400e",
+    img:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqmmRodEZB2OvkWkk7z390xEN6nC1Cd2t7BRSCkDshXA&s=10",
+  },
+];
+
+function HeroCarousel() {
+  const [active,  setActive]  = useState(0);
+  const [paused,  setPaused]  = useState(false);
+  const [imgFail, setImgFail] = useState({});
+  const timer = useRef(null);
+
+  const go = (i) => { clearTimeout(timer.current); setActive(i); };
+  const prev = () => go((active - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  const next = () => go((active + 1) % HERO_SLIDES.length);
+
+  useEffect(() => {
+    if (paused) return;
+    timer.current = setTimeout(() => setActive(i => (i + 1) % HERO_SLIDES.length), 5000);
+    return () => clearTimeout(timer.current);
+  }, [active, paused]);
+
+  const s = HERO_SLIDES[active];
+  const fallback = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=720&h=440&fit=crop&auto=format";
+
+  return (
+    <div style={{ position:"relative" }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}>
+
+      {/* Card shell */}
+      <div style={{ borderRadius:20, background:"#fff", border:"1px solid #e8ecf0",
+        boxShadow:"0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.05)",
+        overflow:"hidden" }}>
+
+        {/* Image area */}
+        <div style={{ position:"relative", height:220, overflow:"hidden", background:"#f1f5f9" }}>
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={active}
+              src={imgFail[active] ? fallback : s.img}
+              alt={s.title}
+              loading="lazy"
+              onError={() => setImgFail(p => ({ ...p, [active]: true }))}
+              initial={{ opacity:0, scale:1.04 }}
+              animate={{ opacity:1, scale:1 }}
+              exit={{ opacity:0 }}
+              transition={{ duration:0.45 }}
+              style={{ position:"absolute", inset:0, width:"100%", height:"100%",
+                objectFit:"cover", display:"block" }}
+            />
+          </AnimatePresence>
+          {/* Gradient overlay for text legibility */}
+          <div style={{ position:"absolute", inset:0,
+            background:"linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }}/>
+          {/* Category badge — top left */}
+          <div style={{ position:"absolute", top:14, left:14,
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:"rgba(255,255,255,0.96)", backdropFilter:"blur(6px)",
+            borderRadius:999, padding:"5px 12px",
+            boxShadow:"0 1px 6px rgba(0,0,0,0.1)" }}>
+            <span style={{ fontSize:14, lineHeight:1 }}>{s.icon}</span>
+            <span style={{ fontSize:11, fontWeight:700, color:"#374151",
+              letterSpacing:"0.01em" }}>{s.tag}</span>
+          </div>
+        </div>
+
+        {/* Text content */}
+        <div style={{ padding:"20px 22px 6px" }}>
+          <AnimatePresence mode="wait">
+            <motion.div key={active}
+              initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
+              exit={{ opacity:0, y:-6 }} transition={{ duration:0.28 }}>
+              <h3 style={{ fontSize:16, fontWeight:800, color:"#0f172a",
+                margin:"0 0 7px", lineHeight:1.25, letterSpacing:"-0.02em" }}>
+                {s.title}
+              </h3>
+              <p style={{ fontSize:13, color:"#64748b", margin:0, lineHeight:1.65 }}>{s.desc}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Controls row */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"14px 22px 18px" }}>
+          <div style={{ display:"flex", gap:5 }}>
+            {HERO_SLIDES.map((_,i) => (
+              <button key={i} onClick={() => go(i)} style={{
+                width: i === active ? 22 : 7, height:7, borderRadius:999, padding:0,
+                border:"none", cursor:"pointer", transition:"all 0.25s",
+                background: i === active ? s.color : "#e2e8f0",
+              }}/>
+            ))}
+          </div>
+          {/* Arrows */}
+          <div style={{ display:"flex", gap:6 }}>
+            {[{ fn:prev, Icon:ChevronLeft }, { fn:next, Icon:ChevronRight }].map(({ fn, Icon }, i) => (
+              <button key={i} onClick={fn}
+                style={{ width:30, height:30, borderRadius:8, border:"1px solid #e2e8f0",
+                  background:"#f8fafc", cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = s.tagBg; e.currentTarget.style.borderColor = s.color; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#e2e8f0"; }}>
+                <Icon size={14} color="#64748b"/>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── tiny reusable pill ─── */
 function Pill({ children, color = "#2563eb", bg = "#eff6ff" }) {
@@ -271,76 +419,107 @@ export default function HomePage() {
       )}
 
       {/* ════════════════════════════════════════════════════════ HERO */}
-      <section style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", overflow: "hidden", position: "relative" }}>
-        {/* subtle geometric accent */}
-        <div style={{ position: "absolute", top: -120, right: -120, width: 480, height: 480, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", bottom: -80, left: -80, width: 320, height: 320, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(34,197,94,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <section style={{ background:"#fff", borderBottom:"1px solid #f1f5f9", overflow:"hidden", position:"relative" }}>
 
-        <div className="wrap" style={{ paddingTop: 80, paddingBottom: 80, position: "relative" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }} className="hero-grid">
+        {/* Background — very soft radial blue glow only, no purple */}
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none",
+          background:"radial-gradient(ellipse 70% 55% at 12% 45%, rgba(37,99,235,0.055) 0%, transparent 65%), radial-gradient(ellipse 50% 45% at 80% 15%, rgba(59,130,246,0.04) 0%, transparent 60%)" }}/>
+        {/* Dot-grid — even lighter */}
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none", opacity:0.22,
+          backgroundImage:"radial-gradient(circle, #94a3b8 1px, transparent 1px)",
+          backgroundSize:"32px 32px" }}/>
+
+        <div className="wrap" style={{ paddingTop:48, paddingBottom:72, position:"relative" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:80, alignItems:"center" }} className="hero-grid">
 
             {/* ── LEFT copy ── */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-              <div style={{ marginBottom: 20 }}>
-                <Pill color="#2563eb" bg="#eff6ff">
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} className="pulse-dot" />
+            <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }}
+              transition={{ duration:0.5, ease:[0.16,1,0.3,1] }}>
+
+              {/* Trust badge — pure blue palette, no purple */}
+              <motion.div initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
+                transition={{ delay:0.08, duration:0.4 }}
+                style={{ marginBottom:28 }}>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:7, fontSize:11.5, fontWeight:600,
+                  padding:"6px 16px", borderRadius:999, letterSpacing:"0.01em",
+                  background:"#eff6ff", border:"1px solid #bfdbfe", color:"#1d4ed8" }}>
+                  <span style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e",
+                    boxShadow:"0 0 0 3px rgba(34,197,94,0.18)", display:"inline-block" }} className="pulse-dot"/>
                   Trusted Local Assistance · Hyderabad
-                </Pill>
-              </div>
+                </span>
+              </motion.div>
 
-              <h1 style={{ fontSize: "clamp(2rem,4vw,3.25rem)", fontWeight: 800, color: "#0f172a",
-                lineHeight: 1.1, letterSpacing: "-0.03em", margin: "0 0 20px" }}>
-                Find Trusted Local&nbsp;Help—
-                <span style={{ color: "#2563eb" }}>Without the Guesswork</span>
-              </h1>
+              {/* Headline — keep text, polish only typography */}
+              <motion.h1 initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
+                transition={{ delay:0.13, duration:0.5, ease:[0.16,1,0.3,1] }}
+                style={{ fontSize:"clamp(2.5rem,4.2vw,3.6rem)", fontWeight:800, color:"#0f172a",
+                  lineHeight:1.08, letterSpacing:"-0.035em", margin:"0 0 26px" }}>
+                Move Anywhere.{" "}
+                <span style={{ background:"linear-gradient(135deg,#1d4ed8 0%,#2563eb 55%,#3b82f6 100%)",
+                  WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+                  backgroundClip:"text" }}>
+                  Trust Everywhere.
+                </span>
+              </motion.h1>
 
-              <p style={{ fontSize: 17, color: "#475569", lineHeight: 1.7, maxWidth: 440, margin: "0 0 36px", fontWeight: 400 }}>
-                Connect with verified local services and experienced community guides
-                to settle confidently into your new city.
-              </p>
+              {/* Subheading — better line-height, slightly narrower, easier to scan */}
+              <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }}
+                transition={{ delay:0.2, duration:0.45 }}
+                style={{ fontSize:"clamp(15px,1.5vw,16.5px)", color:"#64748b", lineHeight:1.8,
+                  maxWidth:440, margin:"0 0 40px", fontWeight:400, letterSpacing:"0.005em" }}>
+                Discover verified local services, trusted community guides, and authentic community reviews—everything you need to settle into a new place with confidence.
+              </motion.p>
 
               {/* CTAs */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
+              <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+                transition={{ delay:0.26, duration:0.4 }}
+                style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:52 }}>
                 <Link to="/services"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "#fff",
-                    textDecoration: "none", borderRadius: 8, padding: "12px 22px", fontSize: 14, fontWeight: 700,
-                    boxShadow: "0 2px 12px rgba(37,99,235,0.35)", transition: "all 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#1d4ed8"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "#2563eb"; e.currentTarget.style.transform = "none"; }}>
-                  Explore Services <ArrowRight size={15} />
+                  style={{ display:"inline-flex", alignItems:"center", gap:8, background:"#2563eb", color:"#fff",
+                    textDecoration:"none", borderRadius:10, padding:"13px 26px", fontSize:14.5, fontWeight:700,
+                    boxShadow:"0 1px 6px rgba(37,99,235,0.25), 0 1px 2px rgba(0,0,0,0.06)",
+                    transition:"background 0.18s, transform 0.18s, box-shadow 0.18s", letterSpacing:"-0.01em" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="#1d4ed8"; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 4px 14px rgba(37,99,235,0.3), 0 1px 4px rgba(0,0,0,0.08)"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.background="#2563eb"; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 1px 6px rgba(37,99,235,0.25), 0 1px 2px rgba(0,0,0,0.06)"; }}>
+                  Explore Trusted Services <ArrowRight size={15}/>
                 </Link>
                 <Link to="/residents"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#0f172a",
-                    textDecoration: "none", fontSize: 14, fontWeight: 600, border: "1.5px solid #e2e8f0",
-                    borderRadius: 8, padding: "11px 20px", background: "#fff", transition: "all 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.background = "#f8fafc"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
-                  Meet Community Guides <ChevronRight size={15} />
+                  style={{ display:"inline-flex", alignItems:"center", gap:7, color:"#374151",
+                    textDecoration:"none", fontSize:14.5, fontWeight:500, border:"1px solid #e2e8f0",
+                    borderRadius:10, padding:"12px 22px", background:"#fff",
+                    transition:"border-color 0.18s, background 0.18s, transform 0.18s, box-shadow 0.18s",
+                    letterSpacing:"-0.01em", boxShadow:"0 1px 3px rgba(0,0,0,0.05)" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor="#93c5fd"; e.currentTarget.style.background="#f8fafc"; e.currentTarget.style.transform="translateY(-1px)"; e.currentTarget.style.boxShadow="0 3px 10px rgba(0,0,0,0.07)"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor="#e2e8f0"; e.currentTarget.style.background="#fff"; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.05)"; }}>
+                  Meet Local Guides <ChevronRight size={14}/>
                 </Link>
-              </div>
+              </motion.div>
 
-              {/* trust strip */}
-              <div style={{ display: "flex", gap: 28, paddingTop: 24, borderTop: "1px solid #e2e8f0" }}>
+              {/* Stats strip */}
+              <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
+                transition={{ delay:0.35, duration:0.4 }}
+                style={{ display:"flex", gap:36, paddingTop:24, borderTop:"1px solid #f1f5f9" }}>
                 {[
-                  { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l: "Newcomers helped"   },
-                  { v: stats ? fmtStat(stats.verifiedResidents) : "—", l: "Verified guides"    },
-                  { v: stats ? fmtStat(stats.activeServices)    : "—", l: "Active services"    },
-                ].map(s => (
-                  <div key={s.l}>
-                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{s.v}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>{s.l}</div>
-                  </div>
+                  { v: stats ? fmtStat(stats.totalNewcomers)    : "—", l:"Newcomers helped"  },
+                  { v: stats ? fmtStat(stats.verifiedResidents) : "—", l:"Verified guides"   },
+                  { v: stats ? fmtStat(stats.activeServices)    : "—", l:"Active services"   },
+                ].map((s,i)=>(
+                  <motion.div key={s.l} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}
+                    transition={{ delay:0.38+i*0.07 }}>
+                    <div style={{ fontSize:"1.35rem", fontWeight:800, color:"#0f172a",
+                      lineHeight:1, letterSpacing:"-0.03em" }}>{s.v}</div>
+                    <div style={{ fontSize:11, color:"#94a3b8", marginTop:5, fontWeight:500,
+                      letterSpacing:"0.01em" }}>{s.l}</div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </motion.div>
 
-            {/* ── RIGHT — journey carousel ── */}
-            <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="hero-right" style={{ position: "relative" }}>
-              <JourneyCarousel />
+            {/* ── RIGHT — hero carousel ── */}
+            <motion.div initial={{ opacity:0, x:28 }} animate={{ opacity:1, x:0 }}
+              transition={{ duration:0.55, delay:0.1, ease:[0.16,1,0.3,1] }}
+              className="hero-right" style={{ position:"relative" }}>
+              <HeroCarousel/>
             </motion.div>
           </div>
         </div>
