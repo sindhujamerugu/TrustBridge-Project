@@ -306,35 +306,116 @@ function SideTitle({ icon, title }) {
 }
 
 function TopContributors({ posts }) {
+  // Build a map of users who have written at least one answer.
+  // Asking questions alone does NOT qualify someone as a contributor.
   const map = {};
   posts.forEach(p => {
-    const name = p.author?.name || p.user?.name;
-    const id   = p.author?._id  || p.user?._id || name;
-    if (!name || !id) return;
-    if (!map[id]) map[id] = { name, answers: 0, posts: 0 };
-    map[id].posts++;
-    map[id].answers += p.answers?.length ?? 0;
+    if (!p.answers?.length) return; // skip posts with zero answers
+    p.answers.forEach(ans => {
+      const name = ans.author?.name;
+      const id   = ans.author?._id || name;
+      if (!name || !id) return;
+      if (!map[id]) map[id] = { name, answers: 0, likes: 0 };
+      map[id].answers++;
+      // Count helpful votes: likes on this answer (if stored) OR
+      // fall back to counting the answer's own presence once.
+      map[id].likes += (ans.likes?.length ?? 0);
+    });
   });
-  const top = Object.values(map).sort((a,b)=>(b.answers+b.posts)-(a.answers+a.posts)).slice(0,5);
-  if (!top.length) return null;
+
+  // Sort: highest likes first, then most answers, then name
+  const top = Object.values(map)
+    .filter(c => c.answers > 0)          // must have answered at least once
+    .sort((a, b) => (b.likes - a.likes) || (b.answers - a.answers))
+    .slice(0, 5);
+
   return (
     <SideCard>
       <SideTitle icon="🏆" title="Top Contributors"/>
+      {top.length === 0 ? (
+        <div style={{textAlign:"center",padding:"12px 0"}}>
+          <p style={{fontSize:12,color:"#94a3b8",margin:"0 0 4px"}}>No contributors yet.</p>
+          <p style={{fontSize:11,color:"#cbd5e1",margin:0}}>Be the first to help your community!</p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {top.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:12,fontWeight:700,color:"#94a3b8",width:16}}>{i+1}</span>
+              <div style={{width:30,height:30,borderRadius:"50%",background:av(c.name),
+                display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:800,flexShrink:0}}>
+                {c.name.charAt(0)}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:700,color:"#0f172a",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                <p style={{fontSize:11,color:"#94a3b8",margin:0}}>
+                  {c.answers} {c.answers === 1 ? "answer" : "answers"}
+                  {c.likes > 0 && ` · ${c.likes} helpful`}
+                </p>
+              </div>
+              {i===0&&<span style={{fontSize:12}}>🥇</span>}
+              {i===1&&<span style={{fontSize:12}}>🥈</span>}
+              {i===2&&<span style={{fontSize:12}}>🥉</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </SideCard>
+  );
+}
+
+function NewcomersSection({ posts }) {
+  // Users who have asked at least one question but have NOT answered any.
+  // This correctly separates seekers from helpers.
+  const askers   = {};  // id → { name, questions, latestAt }
+  const answered = new Set();
+
+  posts.forEach(p => {
+    // Track everyone who has answered — they are contributors, not newcomers
+    p.answers?.forEach(ans => {
+      const aid = ans.author?._id || ans.author?.name;
+      if (aid) answered.add(String(aid));
+    });
+    // Track question authors
+    const name = p.author?.name || p.user?.name;
+    const id   = String(p.author?._id || p.user?._id || name || '');
+    if (!name || !id) return;
+    if (!askers[id]) askers[id] = { name, questions: 0, latestAt: p.createdAt };
+    askers[id].questions++;
+    if (new Date(p.createdAt) > new Date(askers[id].latestAt)) {
+      askers[id].latestAt = p.createdAt;
+    }
+  });
+
+  // Keep only pure question-askers (no answers given)
+  const newcomers = Object.entries(askers)
+    .filter(([id]) => !answered.has(id))
+    .map(([, v]) => v)
+    .sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt))
+    .slice(0, 5);
+
+  if (!newcomers.length) return null;
+
+  return (
+    <SideCard>
+      <SideTitle icon="👋" title="Newcomers"/>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {top.map((c,i)=>(
+        {newcomers.map(c => (
           <div key={c.name} style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:12,fontWeight:700,color:"#94a3b8",width:16}}>{i+1}</span>
             <div style={{width:30,height:30,borderRadius:"50%",background:av(c.name),
               display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:800,flexShrink:0}}>
               {c.name.charAt(0)}
             </div>
             <div style={{flex:1,minWidth:0}}>
               <p style={{fontSize:12,fontWeight:700,color:"#0f172a",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
-              <p style={{fontSize:11,color:"#94a3b8",margin:0}}>{c.answers} answers · {c.posts} posts</p>
+              <p style={{fontSize:11,color:"#94a3b8",margin:0}}>
+                Asked {c.questions} {c.questions === 1 ? "question" : "questions"}
+              </p>
             </div>
-            {i===0&&<span style={{fontSize:12}}>🥇</span>}
-            {i===1&&<span style={{fontSize:12}}>🥈</span>}
-            {i===2&&<span style={{fontSize:12}}>🥉</span>}
+            <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,
+              background:"#f0fdf4",color:"#16a34a",flexShrink:0,whiteSpace:"nowrap"}}>
+              New
+            </span>
           </div>
         ))}
       </div>
@@ -572,6 +653,7 @@ export default function CommunityPage() {
 
             <TrendingQuestions posts={posts}/>
             <TopContributors posts={posts}/>
+            <NewcomersSection posts={posts}/>
 
             {/* Newcomer Corner */}
             <SideCard>

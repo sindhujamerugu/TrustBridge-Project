@@ -28,20 +28,35 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     notificationAPI.getAll()
-      .then(({ data }) => setNotifs(data.data || []))
+      .then(({ data }) => {
+        const list = data.data || [];
+        setNotifs(list);
+        // Auto-mark all unread as read when the page opens, then broadcast
+        // to the Navbar so the badge updates without a page refresh.
+        const hasUnread = list.some(n => !n.isRead);
+        if (hasUnread) {
+          notificationAPI.markAllRead().then(() => {
+            setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
+            // Dispatch a custom event that Navbar listens to for badge refresh
+            window.dispatchEvent(new CustomEvent('notifications:read'));
+          }).catch(() => {});
+        }
+      })
       .finally(() => setLd(false));
   }, []);
 
   const markAllRead = async () => {
     await notificationAPI.markAllRead();
     setNotifs(p => p.map(n => ({ ...n, isRead: true })));
+    window.dispatchEvent(new CustomEvent('notifications:read'));
   };
 
   const handleClick = async (n) => {
-    // Mark as read
+    // Mark this notification as read if not already
     if (!n.isRead) {
       await notificationAPI.markRead(n._id);
       setNotifs(p => p.map(x => x._id === n._id ? { ...x, isRead: true } : x));
+      window.dispatchEvent(new CustomEvent('notifications:read'));
     }
     // Navigate to link if present
     if (n.link) nav(n.link);

@@ -98,17 +98,30 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  /* notification / message counts */
-  useEffect(() => {
-    if (!user) { setUnread(0); setUnreadMsgs(0); return; }
+  /* notification / message counts — re-fetches on user change AND
+     when NotificationsPage fires the 'notifications:read' custom event */
+  const fetchUnread = () => {
+    if (!user) { setUnread(0); return; }
     notificationAPI.getAll({ unreadOnly: "true" })
       .then(({ data }) => setUnread(data.unreadCount ?? 0)).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!user) { setUnread(0); setUnreadMsgs(0); return; }
+    fetchUnread();
     import("../../services/api").then(({ chatAPI }) =>
       chatAPI.getConversations().then(({ data }) => {
         const myId = user._id || user.id;
         setUnreadMsgs((data.data || []).reduce((s, c) => s + (c.unreadCount?.[myId] || 0), 0));
       }).catch(() => {})
     );
+  }, [user]);
+
+  /* Listen for read events dispatched by NotificationsPage */
+  useEffect(() => {
+    const onRead = () => fetchUnread();
+    window.addEventListener('notifications:read', onRead);
+    return () => window.removeEventListener('notifications:read', onRead);
   }, [user]);
 
   /* close everything on route change */
