@@ -130,8 +130,19 @@ router.get('/newcomers', asyncHandler(async (req, res) => {
 
 router.get('/residents/:id', asyncHandler(async (req, res) => {
   const profile = await ResidentProfile.findById(req.params.id)
-    .populate('user', 'name avatar location city');
+    .populate('user', 'name avatar location city createdAt lastActiveAt lastLogin');
   if (!profile) throw new AppError('Resident not found', 404);
+  res.json({ success: true, data: profile });
+}));
+
+// ── Get resident profile by User ID (for community guide deep links) ─────────
+router.get('/residents/by-user/:userId', asyncHandler(async (req, res) => {
+  const profile = await ResidentProfile.findOne({ user: req.params.userId })
+    .populate('user', 'name avatar location city createdAt lastActiveAt lastLogin');
+  if (!profile) throw new AppError('Community Guide not found', 404);
+  if (profile.user?.role && profile.user.role !== 'resident') {
+    throw new AppError('User is not a Community Guide', 403);
+  }
   res.json({ success: true, data: profile });
 }));
 

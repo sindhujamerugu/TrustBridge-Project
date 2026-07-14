@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     phoneVerified: { type: Boolean, default: false },
     refreshToken: { type: String, select: false },
     lastLogin: Date,
+    lastActiveAt: Date,
     deviceFingerprint: String,
     settings: {
       notifications: {

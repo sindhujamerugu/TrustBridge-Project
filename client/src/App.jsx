@@ -31,6 +31,7 @@ import RefundPage          from './pages/RefundPage';
 import EmergencyContactsPage from './pages/EmergencyContactsPage';
 import StudentTipsPage     from './pages/StudentTipsPage';
 import FAQPage             from './pages/FAQPage';
+import CommunityGuideProfilePage from './pages/CommunityGuideProfilePage';
 
 import NewcomerDashboard   from './pages/dashboard/NewcomerDashboard';
 import ResidentDashboard   from './pages/dashboard/ResidentDashboard';
@@ -70,6 +71,7 @@ export default function App() {
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
               <Route path="/student-tips"    element={<StudentTipsPage />} />
               <Route path="/faq"             element={<FAQPage />} />
+              <Route path="/community-guides/:userId" element={<CommunityGuideProfilePage />} />
 
               {/* Protected */}
               <Route path="/chat"                element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />

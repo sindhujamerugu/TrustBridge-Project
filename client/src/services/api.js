@@ -73,6 +73,7 @@ export const userAPI = {
   updateCommunityProfile: (data) => api.put('/users/me/community-profile', data),
   getResidents: (params) => api.get('/users/residents', { params }),
   getResident: (id) => api.get(`/users/residents/${id}`),
+  getResidentByUserId: (userId) => api.get(`/users/residents/by-user/${userId}`),
   getNewcomers: (params) => api.get('/users/newcomers', { params }),
   getSettings: () => api.get('/users/me/settings'),
   updateSettings: (data) => api.put('/users/me/settings', data),

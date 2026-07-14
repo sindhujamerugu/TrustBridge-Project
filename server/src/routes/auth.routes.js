@@ -62,7 +62,8 @@ router.post('/google', asyncHandler(async (req, res) => {
     }
   }
 
-  user.lastLogin = new Date();
+  user.lastLogin   = new Date();
+  user.lastActiveAt = new Date();
   const { accessToken, refreshToken } = generateTokens(user._id);
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });
@@ -154,7 +155,8 @@ router.post('/login', asyncHandler(async (req, res) => {
   }
   if (!user.isActive) throw new AppError('Account deactivated', 403);
 
-  user.lastLogin = new Date();
+  user.lastLogin    = new Date();
+  user.lastActiveAt = new Date();
   const { accessToken, refreshToken } = generateTokens(user._id);
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });

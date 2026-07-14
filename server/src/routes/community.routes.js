@@ -62,6 +62,9 @@ router.post('/', protect, asyncHandler(async (req, res) => {
     );
     await updateTrustScore(req.user._id);
   }
+  // Track activity
+  await (await import('../models/User.js')).default
+    .findByIdAndUpdate(req.user._id, { lastActiveAt: new Date() }).catch(() => {});
 
   res.status(201).json({ success: true, data: post });
 }));
@@ -77,10 +80,13 @@ router.post('/:id/answers', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'resident') {
     await ResidentProfile.findOneAndUpdate(
       { user: req.user._id },
-      { $inc: { helpfulInteractions: 1 } }
+      { $inc: { helpfulInteractions: 1, questionsAnswered: 1 } }
     );
     await updateTrustScore(req.user._id);
   }
+  // Track activity
+  await (await import('../models/User.js')).default
+    .findByIdAndUpdate(req.user._id, { lastActiveAt: new Date() }).catch(() => {});
 
   const io = req.app.get('io');
   const notification = await createNotification(

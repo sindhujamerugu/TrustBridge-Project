@@ -366,7 +366,92 @@ export default function ServicesPage() {
 
   // live search input (debounced)
   const [searchInput, setSearchInput] = useState(f.search);
-  const debounceRef = useRef(null);
+  const debounceRef  = useRef(null);
+  const searchRef    = useRef(null);
+  const dropRef      = useRef(null);
+
+  // Search dropdown state
+  const [showDrop,  setShowDrop]  = useState(false);
+  const [recentSearches, setRecent] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tb_recent_searches') || '[]'); } catch { return []; }
+  });
+
+  // Popular searches — static but contextual to TrustBridge
+  const POPULAR = [
+    { icon:"🏠", label:"PG near VNR VJIET"      },
+    { icon:"🏥", label:"Dental Clinics"          },
+    { icon:"🍽️", label:"Restaurants"             },
+    { icon:"💊", label:"Pharmacies"              },
+    { icon:"🛒", label:"Grocery Stores"          },
+    { icon:"🏨", label:"Hostels"                 },
+    { icon:"🚌", label:"Transport Services"      },
+    { icon:"📚", label:"Libraries"               },
+  ];
+
+  // Smart autocomplete from service titles + categories + locations
+  const suggestions = searchInput.trim().length >= 2
+    ? (() => {
+        const q = searchInput.toLowerCase();
+        const seen = new Set();
+        const results = [];
+        // Service names
+        allServices.forEach(s => {
+          const name = s.title || '';
+          if (name.toLowerCase().includes(q) && !seen.has(name)) {
+            seen.add(name); results.push({ icon:"🔍", label: name });
+          }
+        });
+        // Categories
+        categories.forEach(c => {
+          if (c.toLowerCase().includes(q) && !seen.has(c)) {
+            seen.add(c); results.push({ icon: getCat(c).emoji || "🏢", label: c });
+          }
+          // "X in Y" combos
+          ['Bachupally','Miyapur','Secunderabad'].forEach(loc => {
+            const combo = `${c} in ${loc}`;
+            if ((c.toLowerCase().includes(q) || loc.toLowerCase().includes(q)) && !seen.has(combo)) {
+              seen.add(combo); results.push({ icon: getCat(c).emoji || "📍", label: combo });
+            }
+          });
+        });
+        // Locations
+        ['Bachupally','Miyapur','Secunderabad'].forEach(loc => {
+          if (loc.toLowerCase().includes(q) && !seen.has(loc)) {
+            seen.add(loc); results.push({ icon:"📍", label: loc });
+          }
+        });
+        return results.slice(0, 7);
+      })()
+    : [];
+
+  const saveRecent = (val) => {
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    const updated = [trimmed, ...recentSearches.filter(r => r !== trimmed)].slice(0, 5);
+    setRecent(updated);
+    try { localStorage.setItem('tb_recent_searches', JSON.stringify(updated)); } catch {}
+  };
+
+  const pickSuggestion = (label) => {
+    setSearchInput(label);
+    setShowDrop(false);
+    saveRecent(label);
+    upd("search", label);
+  };
+
+  const clearRecent = () => {
+    setRecent([]);
+    try { localStorage.removeItem('tb_recent_searches'); } catch {}
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const fn = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setShowDrop(false);
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
 
   useEffect(() => {
     serviceAPI.getCategories().then(({ data }) => setCats(data.data || [])).catch(()=>{});
@@ -411,6 +496,7 @@ export default function ServicesPage() {
 
   const handleSearchInput = (val) => {
     setSearchInput(val);
+    setShowDrop(true);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => upd("search", val), 400);
   };
@@ -473,38 +559,136 @@ export default function ServicesPage() {
             </p>
 
             {/* search bar */}
-            <div style={{ position:"relative", maxWidth:580, margin:"0 auto" }}>
-              <Search style={{
-                position:"absolute", left:16, top:"50%", transform:"translateY(-50%)",
-                width:17, height:17,
-                color: searchFocused ? "#2563eb" : "#94a3b8",
-                transition:"color 0.15s",
-              }} />
-              <input
-                value={searchInput}
-                onChange={e => handleSearchInput(e.target.value)}
-                placeholder="Search services, categories, locations…"
-                onFocus={() => setSF(true)} onBlur={() => setSF(false)}
-                style={{
-                  width:"100%", padding:"14px 48px 14px 48px",
-                  border:"2px solid",
-                  borderColor: searchFocused ? "#fff" : "rgba(255,255,255,0.25)",
-                  borderRadius:14, fontSize:14, fontFamily:"inherit",
-                  color:"#0f172a", background:"rgba(255,255,255,0.95)",
-                  outline:"none", boxSizing:"border-box",
-                  boxShadow: searchFocused ? "0 0 0 4px rgba(255,255,255,0.2)" : "0 4px 16px rgba(0,0,0,0.15)",
-                  transition:"all 0.2s",
-                }}
-                autoComplete="off"
-              />
-              {searchInput && (
-                <button onClick={() => handleSearchInput("")} style={{
-                  position:"absolute", right:14, top:"50%", transform:"translateY(-50%)",
-                  background:"none", border:"none", cursor:"pointer", padding:4,
-                }}>
-                  <X style={{ width:14, height:14, color:"#94a3b8" }} />
-                </button>
-              )}
+            <div ref={dropRef} style={{ position:"relative", maxWidth:580, margin:"0 auto" }}>
+              {/* Input row */}
+              <div style={{ position:"relative" }}>
+                <Search style={{
+                  position:"absolute", left:16, top:"50%", transform:"translateY(-50%)",
+                  width:17, height:17, pointerEvents:"none",
+                  color: searchFocused ? "#2563eb" : "#94a3b8",
+                  transition:"color 0.2s",
+                }} />
+                <input
+                  ref={searchRef}
+                  value={searchInput}
+                  onChange={e => handleSearchInput(e.target.value)}
+                  onFocus={() => { setSF(true); setShowDrop(true); }}
+                  onBlur={() => setSF(false)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { saveRecent(searchInput); setShowDrop(false); }
+                    if (e.key === 'Escape') { setShowDrop(false); searchRef.current?.blur(); }
+                  }}
+                  placeholder='Try "PG near VNR", "Dentist", or "Restaurants in Miyapur"'
+                  style={{
+                    width:"100%", padding:"14px 48px",
+                    border:"2px solid",
+                    borderColor: searchFocused ? "#fff" : "rgba(255,255,255,0.25)",
+                    borderRadius:14, fontSize:14, fontFamily:"inherit",
+                    color:"#0f172a", background:"rgba(255,255,255,0.97)",
+                    outline:"none", boxSizing:"border-box",
+                    boxShadow: searchFocused ? "0 0 0 4px rgba(255,255,255,0.25), 0 8px 32px rgba(0,0,0,0.18)" : "0 4px 16px rgba(0,0,0,0.15)",
+                    transition:"all 0.2s",
+                  }}
+                  autoComplete="off"
+                />
+                {searchInput && (
+                  <button onClick={() => { handleSearchInput(""); setShowDrop(true); }} style={{
+                    position:"absolute", right:14, top:"50%", transform:"translateY(-50%)",
+                    background:"rgba(241,245,249,0.9)", border:"none", cursor:"pointer",
+                    padding:5, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <X style={{ width:12, height:12, color:"#64748b" }} />
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown */}
+              <AnimatePresence>
+                {showDrop && (
+                  <motion.div
+                    initial={{ opacity:0, y:-6, scale:0.98 }}
+                    animate={{ opacity:1, y:0, scale:1 }}
+                    exit={{ opacity:0, y:-6, scale:0.98 }}
+                    transition={{ duration:0.14 }}
+                    style={{
+                      position:"absolute", top:"calc(100% + 8px)", left:0, right:0, zIndex:200,
+                      background:"#fff", borderRadius:14, overflow:"hidden",
+                      boxShadow:"0 16px 48px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
+                      border:"1px solid #e2e8f0",
+                    }}>
+
+                    {/* Live autocomplete while typing */}
+                    {suggestions.length > 0 ? (
+                      <div style={{ padding:"8px 0" }}>
+                        {suggestions.map((s, i) => (
+                          <button key={i} onMouseDown={() => pickSuggestion(s.label)} style={{
+                            width:"100%", display:"flex", alignItems:"center", gap:10,
+                            padding:"9px 16px", background:"none", border:"none",
+                            cursor:"pointer", textAlign:"left", transition:"background 0.1s",
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.background="#f8fafc"}
+                            onMouseLeave={e => e.currentTarget.style.background="none"}>
+                            <span style={{ fontSize:14, width:22, textAlign:"center", flexShrink:0 }}>{s.icon}</span>
+                            <span style={{ fontSize:13, color:"#0f172a", fontWeight:500, flex:1 }}>
+                              {(() => {
+                                const idx = s.label.toLowerCase().indexOf(searchInput.toLowerCase());
+                                if (idx < 0) return s.label;
+                                return <>
+                                  {s.label.slice(0, idx)}
+                                  <strong style={{ color:"#2563eb" }}>{s.label.slice(idx, idx + searchInput.length)}</strong>
+                                  {s.label.slice(idx + searchInput.length)}
+                                </>;
+                              })()}
+                            </span>
+                            <ChevronRight style={{ width:12, height:12, color:"#cbd5e1" }} />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        {/* Recent searches */}
+                        {recentSearches.length > 0 && (
+                          <div style={{ padding:"12px 16px 4px" }}>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                              <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em" }}>Recent</span>
+                              <button onMouseDown={clearRecent} style={{ background:"none", border:"none", fontSize:11, color:"#94a3b8", cursor:"pointer", fontWeight:600 }}>Clear</button>
+                            </div>
+                            {recentSearches.map((r, i) => (
+                              <button key={i} onMouseDown={() => pickSuggestion(r)} style={{
+                                width:"100%", display:"flex", alignItems:"center", gap:10,
+                                padding:"8px 0", background:"none", border:"none", cursor:"pointer", textAlign:"left",
+                              }}>
+                                <Clock style={{ width:12, height:12, color:"#94a3b8", flexShrink:0 }} />
+                                <span style={{ fontSize:13, color:"#374151", flex:1 }}>{r}</span>
+                                <ChevronRight style={{ width:11, height:11, color:"#cbd5e1" }} />
+                              </button>
+                            ))}
+                            <div style={{ height:1, background:"#f1f5f9", margin:"8px 0 0" }}/>
+                          </div>
+                        )}
+                        {/* Popular searches */}
+                        <div style={{ padding:"10px 16px 14px" }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em" }}>🔥 Popular</span>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2, marginTop:8 }}>
+                            {POPULAR.map((p, i) => (
+                              <button key={i} onMouseDown={() => pickSuggestion(p.label)} style={{
+                                display:"flex", alignItems:"center", gap:8,
+                                padding:"7px 10px", borderRadius:9, background:"none", border:"none",
+                                cursor:"pointer", textAlign:"left", transition:"background 0.12s",
+                              }}
+                                onMouseEnter={e => e.currentTarget.style.background="#f8fafc"}
+                                onMouseLeave={e => e.currentTarget.style.background="none"}>
+                                <span style={{ fontSize:14 }}>{p.icon}</span>
+                                <span style={{ fontSize:12, color:"#374151", fontWeight:500 }}>{p.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
 
@@ -513,16 +697,22 @@ export default function ServicesPage() {
             display:"flex", alignItems:"center", justifyContent:"center",
             gap:24, flexWrap:"wrap",
           }}>
-            {[
-              { icon:"🛡️", label:`${allServices.filter(s=>s.isVerified).length} Verified Businesses` },
-              { icon:"⭐", label:`${allServices.filter(s=>(s.averageRating||0)>=4).length} Top Rated` },
-              { icon:"📍", label:`${[...new Set(allServices.map(s=>s.location))].length} Areas Covered` },
-            ].map(({ icon, label }) => (
-              <div key={label} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:14 }}>{icon}</span>
-                <span style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.85)" }}>{label}</span>
-              </div>
-            ))}
+            {(() => {
+              const verifiedCount = allServices.filter(s => s.isVerified).length;
+              const topRatedCount = allServices.filter(s => (s.averageRating||0) >= 4).length;
+              const areasCount    = [...new Set(allServices.map(s => s.location).filter(Boolean))].length;
+              const stats = [
+                verifiedCount > 0 ? { icon:"🛡️", label:`${verifiedCount} Verified Businesses` } : null,
+                topRatedCount > 0 ? { icon:"⭐", label:`${topRatedCount} Top Rated` }             : null,
+                areasCount    > 0 ? { icon:"📍", label:`${areasCount} Areas Covered` }            : null,
+              ].filter(Boolean);
+              return stats.map(({ icon, label }) => (
+                <div key={label} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontSize:14 }}>{icon}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.85)" }}>{label}</span>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ import {
   CheckCircle, Zap, Lock, TrendingUp, ChevronRight,
   Clock, Users, FileCheck, ChevronLeft, Sparkles
 } from "lucide-react";
-import { serviceAPI, userAPI, statsAPI } from "../services/api";
+import { serviceAPI, userAPI, statsAPI, communityAPI } from "../services/api";
 import { ServiceCard, LoadingSpinner } from "../components/ui/Cards";
 
 /* ─── static data ─── */
@@ -41,11 +41,10 @@ const TESTIMONIALS = [
   },
 ];
 
-const GUIDES = [
-  { name: "Rajesh Kumar", area: "Miyapur",      years: 8,  helped: 142, lang: "Telugu, Hindi, English", initial: "R", color: "#059669", response: "~2 hrs" },
-  { name: "Sneha Reddy",  area: "Bachupally",   years: 5,  helped: 97,  lang: "Telugu, English",       initial: "S", color: "#2563eb", response: "~1 hr"  },
-  { name: "Anil Sharma",  area: "Secunderabad", years: 12, helped: 203, lang: "Hindi, Telugu, English", initial: "A", color: "#7c3aed", response: "~3 hrs" },
-];
+const AV_COLORS_HP = ["#2563eb","#7c3aed","#0891b2","#16a34a","#d97706","#dc2626","#db2777","#0f766e"];
+const avColorHP = n => AV_COLORS_HP[(n?.charCodeAt(0)||0) % AV_COLORS_HP.length];
+
+const RANK_BADGES = ["🥇","🥈","🥉"];
 
 const FEATURES = [
   { icon: <Shield size={22} />,    color: "#2563eb", bg: "#eff6ff", title: "Verified Services",         desc: "Every provider passes identity & document verification before listing." },
@@ -386,6 +385,31 @@ export default function HomePage() {
   const [loading, setLd]    = useState(true);
   const [err,    setErr]    = useState(false);
   const [stats,  setStats]  = useState(null);
+  const [topContributors, setTopContributors] = useState([]);
+  const [contribLoading,  setContribLoading]  = useState(true);
+
+  // ── derive top 3 contributors — ONLY residents (Community Guides), not newcomers/providers ──
+  function deriveTop3(posts) {
+    const map = {};
+    posts.forEach(p => {
+      if (!p.answers?.length) return;
+      p.answers.forEach(ans => {
+        // Only count residents — never newcomers, providers, or admins
+        if (ans.author?.role !== 'resident') return;
+        const name = ans.author?.name;
+        const id   = ans.author?._id || name;
+        const area = ans.author?.location || '';
+        if (!name || !id) return;
+        if (!map[id]) map[id] = { name, area, answers: 0, likes: 0, id };
+        map[id].answers++;
+        map[id].likes += (ans.likes?.length ?? 0);
+      });
+    });
+    return Object.values(map)
+      .filter(c => c.answers > 0)
+      .sort((a, b) => (b.likes - a.likes) || (b.answers - a.answers))
+      .slice(0, 3);
+  }
 
   useEffect(() => {
     Promise.all([serviceAPI.getAll({ sort: "featured" }), userAPI.getResidents({ minTrustScore: 70 })])
@@ -395,6 +419,11 @@ export default function HomePage() {
     statsAPI.get()
       .then(({ data }) => setStats(data.data))
       .catch(() => setStats({}));
+    // Fetch community posts to derive live top-3 contributors
+    communityAPI.getAll()
+      .then(({ data }) => setTopContributors(deriveTop3(data.data || [])))
+      .catch(() => setTopContributors([]))
+      .finally(() => setContribLoading(false));
   }, []);
 
   const go = (e) => {
@@ -713,76 +742,146 @@ export default function HomePage() {
       {/* ════════════════════════════════════════ COMMUNITY GUIDES */}
       <section style={{ padding: "80px 0", background: "#fff", borderTop: "1px solid #f1f5f9" }}>
         <div className="wrap">
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 40 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 48, flexWrap: "wrap", gap: 16 }}>
             <div>
-              <SectionLabel>Community guides</SectionLabel>
+              <SectionLabel>🏆 Top Community Contributors</SectionLabel>
               <h2 style={{ fontSize: "clamp(1.4rem,2.5vw,2rem)", fontWeight: 800, color: "#0f172a",
-                letterSpacing: "-0.025em", margin: 0 }}>
-                Locals who know the city inside out
+                letterSpacing: "-0.025em", margin: "0 0 10px" }}>
+                Meet Our Top Community Guides
               </h2>
+              <p style={{ fontSize: 14, color: "#64748b", maxWidth: 540, margin: 0, lineHeight: 1.65 }}>
+                Recognizing verified community guides who actively help newcomers with trusted local knowledge and guidance.
+              </p>
             </div>
-            <Link to="/residents" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13,
-              fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+            <Link to="/residents" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13,
+              fontWeight: 700, color: "#2563eb", textDecoration: "none", flexShrink: 0,
+              padding: "8px 16px", borderRadius: 8, border: "1.5px solid #bfdbfe", background: "#eff6ff",
+              transition: "all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#dbeafe"; e.currentTarget.style.borderColor = "#93c5fd"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#eff6ff"; e.currentTarget.style.borderColor = "#bfdbfe"; }}>
               Meet all guides <ArrowRight size={14} />
             </Link>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }} className="testi-grid">
-            {GUIDES.map((g, i) => (
-              <motion.div key={g.name}
-                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                style={{ background: "#f8fafc", border: "1.5px solid #f1f5f9", borderRadius: 14,
-                  padding: "24px", transition: "all 0.18s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(37,99,235,0.07)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}>
-                {/* header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 14, background: g.color,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#fff", fontSize: 20, fontWeight: 800, flexShrink: 0, position: "relative" }}>
-                    {g.initial}
-                    <span style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14,
-                      borderRadius: "50%", background: "#22c55e", border: "2.5px solid #f8fafc" }} />
+
+          {/* Loading skeletons */}
+          {contribLoading && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="testi-grid">
+              {[0,1,2].map(i => (
+                <div key={i} style={{ background: "#fff", borderRadius: 16, padding: "28px 24px",
+                  border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e2e8f0", animation: "pulse 1.5s ease infinite" }}/>
+                    <div style={{ width: 100, height: 24, borderRadius: 999, background: "#e2e8f0", animation: "pulse 1.5s ease infinite" }}/>
                   </div>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{g.name}</span>
-                      <Shield size={12} style={{ color: "#2563eb" }} />
+                  <div style={{ display: "flex", gap: 14, marginBottom: 20 }}>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#e2e8f0", animation: "pulse 1.5s ease infinite", flexShrink: 0 }}/>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ width: "70%", height: 14, borderRadius: 8, background: "#e2e8f0", marginBottom: 8, animation: "pulse 1.5s ease infinite" }}/>
+                      <div style={{ width: "50%", height: 11, borderRadius: 8, background: "#e2e8f0", animation: "pulse 1.5s ease infinite" }}/>
                     </div>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>{g.area}</span>
+                  </div>
+                  <div style={{ height: 1, background: "#f1f5f9", marginBottom: 16 }}/>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ width: "60%", height: 12, borderRadius: 8, background: "#e2e8f0", animation: "pulse 1.5s ease infinite" }}/>
+                    <div style={{ width: "50%", height: 12, borderRadius: 8, background: "#e2e8f0", animation: "pulse 1.5s ease infinite" }}/>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
 
-                {/* stats row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-                  {[
-                    { label: "Years here", value: `${g.years} yrs` },
-                    { label: "Newcomers helped", value: g.helped },
-                    { label: "Languages", value: g.lang },
-                    { label: "Response time", value: g.response },
-                  ].map(stat => (
-                    <div key={stat.label} style={{ background: "#fff", border: "1px solid #f1f5f9",
-                      borderRadius: 8, padding: "8px 10px" }}>
-                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{stat.label}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{stat.value}</div>
+          {/* Empty state */}
+          {!contribLoading && topContributors.length === 0 && (
+            <div style={{ textAlign: "center", padding: "56px 24px", background: "#f8fafc",
+              borderRadius: 16, border: "1.5px solid #f1f5f9" }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>🤝</div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>Be the first contributor!</p>
+              <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Answer community questions to appear here.</p>
+            </div>
+          )}
+
+          {/* Live premium contributor cards */}
+          {!contribLoading && topContributors.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="testi-grid">
+              {topContributors.map((g, i) => (
+                <motion.div key={g.id || g.name}
+                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ background: "#fff", border: "1.5px solid #f1f5f9", borderRadius: 16,
+                    padding: "28px 24px", transition: "all 0.2s ease",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(37,99,235,0.1)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.04)"; }}>
+
+                  {/* Top row: rank + verified badge */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <span style={{ fontSize: 26, lineHeight: 1 }}>{RANK_BADGES[i]}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11,
+                      fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+                      background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }}/>
+                      Verified Guide
+                    </span>
+                  </div>
+
+                  {/* Avatar + name + location */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: avColorHP(g.name),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "#fff", fontSize: 22, fontWeight: 800, flexShrink: 0,
+                      boxShadow: `0 4px 12px ${avColorHP(g.name)}44` }}>
+                      {g.name.charAt(0).toUpperCase()}
                     </div>
-                  ))}
-                </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 3px",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</p>
+                      <span style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
+                        <MapPin size={11} color="#94a3b8" />
+                        {g.area || "Hyderabad"}
+                      </span>
+                    </div>
+                  </div>
 
-                {/* community badge */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <Pill color="#059669" bg="#f0fdf4">
-                    ✓ Verified Guide
-                  </Pill>
-                  <Link to="/residents"
-                    style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", textDecoration: "none",
-                      display: "flex", alignItems: "center", gap: 4 }}>
-                    View Profile <ChevronRight size={13} />
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                  {/* Divider */}
+                  <div style={{ height: 1, background: "#f1f5f9", marginBottom: 18 }}/>
+
+                  {/* Stats as clean rows — no colored boxes */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: "#eff6ff",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <span style={{ fontSize: 14 }}>💬</span>
+                      </div>
+                      <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
+                        <strong style={{ color: "#0f172a" }}>{g.answers}</strong> {g.answers === 1 ? "Answer" : "Answers"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: "#f0fdf4",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <span style={{ fontSize: 14 }}>👍</span>
+                      </div>
+                      <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
+                        <strong style={{ color: "#0f172a" }}>{g.likes}</strong> Helpful {g.likes === 1 ? "Vote" : "Votes"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Footer: View Profile */}
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
+                    <Link to={`/community-guides/${g.id}`}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13,
+                        fontWeight: 700, color: "#2563eb", textDecoration: "none", transition: "gap 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.gap = "8px"}
+                      onMouseLeave={e => e.currentTarget.style.gap = "5px"}>
+                      View Profile <ChevronRight size={14} />
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

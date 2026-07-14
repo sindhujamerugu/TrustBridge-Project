@@ -30,6 +30,28 @@ function getBadgeLabel(total) {
   return "New Contributor";
 }
 
+// Format "Member Since" from a date — e.g. "July 2026"
+function formatMemberSince(date) {
+  if (!date) return null;
+  return new Date(date).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+}
+
+// Format "Last Active" as a relative string — e.g. "Today", "2 hours ago"
+function formatLastActive(date) {
+  if (!date) return null;
+  const now  = Date.now();
+  const d    = new Date(date).getTime();
+  const diff = Math.floor((now - d) / 1000); // seconds
+  if (diff < 60)          return "Just now";
+  if (diff < 3600)        return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)       return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 2)   return "Yesterday";
+  if (diff < 86400 * 7)   return `${Math.floor(diff / 86400)} days ago`;
+  if (diff < 86400 * 14)  return "Last week";
+  if (diff < 86400 * 30)  return `${Math.floor(diff / (86400 * 7))} weeks ago`;
+  return new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export default function GuideProfilePage() {
   const { id }   = useParams();
   const { user } = useAuth();
@@ -228,6 +250,8 @@ export default function GuideProfilePage() {
                   {label:"Connection", value:connLabel,                              color:"#7c3aed"},
                   {label:"Badge",      value:badgeLabel,                             color:"#16a34a"},
                   {label:"Helpful Votes", value:String(hv),                         color:"#d97706"},
+                  ...(u.createdAt ? [{label:"Member Since", value:formatMemberSince(u.createdAt), color:"#0891b2"}] : []),
+                  ...(u.lastActiveAt||u.lastLogin ? [{label:"Last Active", value:formatLastActive(u.lastActiveAt||u.lastLogin), color:"#16a34a"}] : []),
                 ].map(r=>(
                   <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <span style={{fontSize:12,color:"#94a3b8"}}>{r.label}</span>
