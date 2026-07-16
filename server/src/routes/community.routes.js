@@ -27,7 +27,8 @@ router.get('/', asyncHandler(async (req, res) => {
     .populate('author', 'name avatar role')
     .populate('answers.author', 'name avatar role')
     .sort({ createdAt: -1 })
-    .limit(50);
+    .limit(50)
+    .lean();  // lean() returns plain JS objects — 2-3x faster, less memory
 
   res.json({ success: true, data: posts });
 }));
@@ -71,32 +72,37 @@ router.post('/', protect, asyncHandler(async (req, res) => {
 
 router.post('/:id/answers', protect, asyncHandler(async (req, res) => {
   const { content } = req.body;
-  const post = await CommunityPost.findById(req.params.id);
-  if (!post) throw new AppError('Post not found', 404);
+  if (!content?.trim()) throw new AppError('Content is required', 400);
 
-  post.answers.push({ author: req.user._id, content });
-  await post.save();
+  // Use $push atomically — avoids race condition from findById + save pattern
+  // The populated response is fetched in a single additional query
+  const updated = await CommunityPost.findByIdAndUpdate(
+    req.params.id,
+    { $push: { answers: { author: req.user._id, content: String(content).trim() } } },
+    { new: true }
+  ).populate('answers.author', 'name avatar role');
 
+  if (!updated) throw new AppError('Post not found', 404);
+
+  // Non-critical side effects — run in background, do not block response
   if (req.user.role === 'resident') {
-    await ResidentProfile.findOneAndUpdate(
+    ResidentProfile.findOneAndUpdate(
       { user: req.user._id },
       { $inc: { helpfulInteractions: 1, questionsAnswered: 1 } }
-    );
-    await updateTrustScore(req.user._id);
+    ).catch(() => {});
+    updateTrustScore(req.user._id).catch(() => {});
   }
-  // Track activity
-  await (await import('../models/User.js')).default
-    .findByIdAndUpdate(req.user._id, { lastActiveAt: new Date() }).catch(() => {});
+  import('../models/User.js').then(({ default: User }) =>
+    User.findByIdAndUpdate(req.user._id, { lastActiveAt: new Date() }).catch(() => {})
+  );
 
   const io = req.app.get('io');
-  const notification = await createNotification(
-    post.author, 'community', 'New Answer',
-    `Someone answered your question: "${post.title}"`, `/community/${post._id}`
-  );
-  emitNotification(io, post.author.toString(), notification);
-
-  const updated = await CommunityPost.findById(post._id)
-    .populate('answers.author', 'name avatar role');
+  createNotification(
+    updated.author, 'community', 'New Answer',
+    `Someone answered your question: "${updated.title}"`, `/community/${updated._id}`
+  ).then(notification => {
+    emitNotification(io, updated.author.toString(), notification);
+  }).catch(() => {});
 
   res.json({ success: true, data: updated });
 }));
@@ -109,56 +115,139 @@ router.patch('/:id/resolve', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: post });
 }));
 
-// ── Like / Unlike a post ─────────────────────────────────────────────────────
-router.post('/:id/like', protect, asyncHandler(async (req, res) => {
+// ── Edit a question (author only) ─────────────────────────────────────────────
+router.patch('/:id', protect, asyncHandler(async (req, res) => {
+  const post = await CommunityPost.findOne({ _id: req.params.id, author: req.user._id });
+  if (!post) throw new AppError('Post not found or not authorized', 404);
+  const { title, content, category, location } = req.body;
+  if (title)    post.title    = String(title).trim();
+  if (content)  post.content  = String(content).trim();
+  if (category) post.category = String(category).trim();
+  if (location !== undefined) post.location = String(location).trim();
+  post.editedAt = new Date();
+  await post.save();
+  const updated = await CommunityPost.findById(post._id)
+    .populate('author', 'name avatar role')
+    .populate('answers.author', 'name avatar role');
+  res.json({ success: true, data: updated });
+}));
+
+// ── Delete a question (author only) ──────────────────────────────────────────
+router.delete('/:id', protect, asyncHandler(async (req, res) => {
+  const post = await CommunityPost.findOneAndDelete({ _id: req.params.id, author: req.user._id });
+  if (!post) throw new AppError('Post not found or not authorized', 404);
+  res.json({ success: true });
+}));
+
+// ── Edit an answer (author only) ─────────────────────────────────────────────
+router.patch('/:id/answers/:answerId', protect, asyncHandler(async (req, res) => {
   const post = await CommunityPost.findById(req.params.id);
   if (!post) throw new AppError('Post not found', 404);
+  const answer = post.answers.id(req.params.answerId);
+  if (!answer) throw new AppError('Answer not found', 404);
+  if (answer.author.toString() !== req.user._id.toString())
+    throw new AppError('Not authorized', 403);
+  const { content } = req.body;
+  if (!content?.trim()) throw new AppError('Content is required', 400);
+  answer.content   = String(content).trim();
+  answer.editedAt  = new Date();
+  await post.save();
+  const updated = await CommunityPost.findById(post._id)
+    .populate('author', 'name avatar role')
+    .populate('answers.author', 'name avatar role');
+  res.json({ success: true, data: updated });
+}));
 
-  const uid      = req.user._id.toString();
-  const alreadyL = post.likes.map(l => l.toString()).includes(uid);
+// ── Delete an answer (author only) ───────────────────────────────────────────
+router.delete('/:id/answers/:answerId', protect, asyncHandler(async (req, res) => {
+  const post = await CommunityPost.findById(req.params.id);
+  if (!post) throw new AppError('Post not found', 404);
+  const answer = post.answers.id(req.params.answerId);
+  if (!answer) throw new AppError('Answer not found', 404);
+  if (answer.author.toString() !== req.user._id.toString())
+    throw new AppError('Not authorized', 403);
+  answer.deleteOne();
+  await post.save();
+  res.json({ success: true });
+}));
 
-  if (alreadyL) {
-    post.likes = post.likes.filter(l => l.toString() !== uid);  // unlike
+// ── Like / Unlike a post — atomic to prevent race conditions ─────────────────
+router.post('/:id/like', protect, asyncHandler(async (req, res) => {
+  const uid = req.user._id;
+
+  // Check current like state atomically before deciding add or remove
+  const existing = await CommunityPost.findOne(
+    { _id: req.params.id, likes: uid },
+    { _id: 1 }
+  ).lean();
+
+  let updated;
+  if (existing) {
+    // Already liked — remove ($pull is atomic, safe for concurrency)
+    updated = await CommunityPost.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { likes: uid } },
+      { new: true, select: 'likes' }
+    );
+    res.json({ success: true, data: { liked: false, count: updated ? updated.likes.length : 0 } });
   } else {
-    post.likes.push(req.user._id);                               // like
-    // Update helpfulVotes on the answer author's resident profile
+    // Not liked — add ($addToSet prevents duplicates even under concurrent requests)
+    updated = await CommunityPost.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { likes: uid } },
+      { new: true, select: 'likes author' }
+    );
+    if (!updated) throw new AppError('Post not found', 404);
+    // Credit helpful votes (non-critical, fire-and-forget)
     if (req.user.role === 'resident') {
-      await ResidentProfile.findOneAndUpdate(
-        { user: post.author },
+      ResidentProfile.findOneAndUpdate(
+        { user: updated.author },
         { $inc: { helpfulVotes: 1 } }
       ).catch(() => {});
     }
+    res.json({ success: true, data: { liked: true, count: updated.likes.length } });
   }
-
-  await post.save();
-  res.json({ success: true, data: { liked: !alreadyL, count: post.likes.length } });
 }));
 
-// ── Like / Unlike an answer ──────────────────────────────────────────────────
+// ── Like / Unlike an answer — atomic to prevent race conditions ───────────────
 router.post('/:id/answers/:answerId/like', protect, asyncHandler(async (req, res) => {
-  const post   = await CommunityPost.findById(req.params.id);
-  if (!post) throw new AppError('Post not found', 404);
+  const uid = req.user._id;
+  const { id, answerId } = req.params;
 
-  const answer = post.answers.id(req.params.answerId);
-  if (!answer) throw new AppError('Answer not found', 404);
+  // Check if already liked (atomic read)
+  const existing = await CommunityPost.findOne(
+    { _id: id, 'answers._id': answerId, 'answers.likes': uid },
+    { _id: 1 }
+  ).lean();
 
-  const uid      = req.user._id.toString();
-  const alreadyL = (answer.likes || []).map(l => l.toString()).includes(uid);
-
-  if (alreadyL) {
-    answer.likes = answer.likes.filter(l => l.toString() !== uid);
+  let updated;
+  if (existing) {
+    // Remove like atomically
+    updated = await CommunityPost.findOneAndUpdate(
+      { _id: id, 'answers._id': answerId },
+      { $pull: { 'answers.$.likes': uid } },
+      { new: true, select: 'answers.$' }
+    );
+    const ans = updated?.answers?.[0];
+    res.json({ success: true, data: { liked: false, count: ans?.likes?.length ?? 0 } });
   } else {
-    if (!answer.likes) answer.likes = [];
-    answer.likes.push(req.user._id);
-    // Credit the answer author's helpful votes
-    await ResidentProfile.findOneAndUpdate(
-      { user: answer.author },
-      { $inc: { helpfulVotes: 1 } }
-    ).catch(() => {});
+    // Add like atomically — $addToSet prevents duplicates
+    updated = await CommunityPost.findOneAndUpdate(
+      { _id: id, 'answers._id': answerId },
+      { $addToSet: { 'answers.$.likes': uid } },
+      { new: true, select: 'answers.$' }
+    );
+    if (!updated) throw new AppError('Answer not found', 404);
+    const ans = updated.answers?.[0];
+    // Credit helpful votes (non-critical)
+    if (ans?.author) {
+      ResidentProfile.findOneAndUpdate(
+        { user: ans.author },
+        { $inc: { helpfulVotes: 1 } }
+      ).catch(() => {});
+    }
+    res.json({ success: true, data: { liked: true, count: ans?.likes?.length ?? 0 } });
   }
-
-  await post.save();
-  res.json({ success: true, data: { liked: !alreadyL, count: (answer.likes || []).length } });
 }));
 
 export default router;

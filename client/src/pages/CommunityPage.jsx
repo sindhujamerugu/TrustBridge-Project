@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -55,13 +55,19 @@ function SkeletonCard() {
 function AskModal({ onClose, onPosted, initialCategory="" }) {
   const [form, setForm] = useState({title:"",content:"",category:initialCategory||"general",location:""});
   const [sub, setSub] = useState(false);
-  const upd = (k,v) => setForm(p=>({...p,[k]:v}));
+  const subRef = useRef(false); // in-flight guard
+  const [contentErr, setContentErr] = useState(false);
+  const upd = (k,v) => { setForm(p=>({...p,[k]:v})); if(k==="content" && v.trim()) setContentErr(false); };
   const submit = async (e) => {
-    e.preventDefault(); setSub(true);
+    e.preventDefault();
+    if (!form.content.trim()) { setContentErr(true); return; }
+    if (subRef.current) return; // already in-flight
+    subRef.current = true; setSub(true);
     try {
       const {data} = await communityAPI.create(form);
       toast.success("Question posted!"); onPosted(data.data); onClose();
-    } catch(err){ toast.error(err.response?.data?.message||"Failed"); } finally{ setSub(false); }
+    } catch(err){ toast.error(err.response?.data?.message||"Failed"); }
+    finally{ subRef.current = false; setSub(false); }
   };
   const fld = {width:"100%",padding:"11px 14px",border:"1.5px solid #e2e8f0",borderRadius:10,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color 0.15s"};
   return (
@@ -85,10 +91,21 @@ function AskModal({ onClose, onPosted, initialCategory="" }) {
               style={fld} onFocus={e=>e.target.style.borderColor="#2563eb"} onBlur={e=>e.target.style.borderColor="#e2e8f0"}/>
           </div>
           <div>
-            <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>Details</label>
+            <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>
+              Details <span style={{color:"#dc2626"}}>*</span>
+            </label>
             <textarea rows={4} value={form.content} onChange={e=>upd("content",e.target.value)}
               placeholder="Share more details about your question..."
-              style={{...fld,resize:"vertical"}} onFocus={e=>e.target.style.borderColor="#2563eb"} onBlur={e=>e.target.style.borderColor="#e2e8f0"}/>
+              style={{...fld, resize:"vertical",
+                borderColor: contentErr ? "#dc2626" : "#e2e8f0",
+                boxShadow: contentErr ? "0 0 0 3px rgba(220,38,38,0.1)" : "none" }}
+              onFocus={e=>e.target.style.borderColor= contentErr ? "#dc2626" : "#2563eb"}
+              onBlur={e=>e.target.style.borderColor= contentErr ? "#dc2626" : "#e2e8f0"}/>
+            {contentErr && (
+              <p style={{fontSize:12,color:"#dc2626",margin:"5px 0 0",display:"flex",alignItems:"center",gap:4}}>
+                <span>⚠</span> Please provide more details about your question.
+              </p>
+            )}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div>
@@ -104,10 +121,10 @@ function AskModal({ onClose, onPosted, initialCategory="" }) {
                 style={fld} onFocus={e=>e.target.style.borderColor="#2563eb"} onBlur={e=>e.target.style.borderColor="#e2e8f0"}/>
             </div>
           </div>
-          <button type="submit" disabled={sub||!form.title}
+          <button type="submit" disabled={sub||!form.title.trim()}
             style={{width:"100%",padding:"13px",borderRadius:12,border:"none",fontSize:15,fontWeight:700,
-              cursor:sub||!form.title?"not-allowed":"pointer",
-              background:sub||!form.title?"#e2e8f0":"#2563eb",color:sub||!form.title?"#94a3b8":"white",
+              cursor:sub||!form.title.trim()?"not-allowed":"pointer",
+              background:sub||!form.title.trim()?"#e2e8f0":"#2563eb",color:sub||!form.title.trim()?"#94a3b8":"white",
               boxShadow:"0 4px 16px rgba(37,99,235,0.3)"}}>
             {sub?"Posting…":"Post Question"}
           </button>
