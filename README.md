@@ -45,11 +45,12 @@ Bachupally • Miyapur • Secunderabad (designed for multi-city expansion)
 
 <p align="center">
   <img src="Screenshots/homepage.jpeg" width="45%">
-  <img src="Screenshots/servicesprovider-page.jpeg" width="45%">
+  <img src="Screenshots/serviceprovider-page.jpeg" width="45%">
 </p>
 
 <p align="center">
   <img src="Screenshots/community-forum.jpeg" width="45%">
+  <img src="Screenshots/localresident.jpeg" width="45%">
 </p>
 
 <p align="center">
