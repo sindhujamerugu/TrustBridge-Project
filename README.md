@@ -41,22 +41,21 @@ Bachupally • Miyapur • Secunderabad (designed for multi-city expansion)
 | Storage | Cloudinary |
 | AI/NLP | Natural.js (TF-IDF, fake review detection) |
 
-## 📸 Project Screenshots
+📸 Project Screenshots
 
 <p align="center">
-  <img src="Screenshots/Homepage.png" width="45%">
-  <img src="Screenshots/Services.png" width="45%">
+  <img src="Screenshots/homepage.jpeg" width="45%">
+  <img src="Screenshots/servicesprovider-page.jpeg" width="45%">
 </p>
 
 <p align="center">
-  <img src="Screenshots/community.png" width="45%">
-  <img src="Screenshots/Community%20Member.png" width="45%">
+  <img src="Screenshots/community-forum.jpeg" width="45%">
 </p>
 
 <p align="center">
-  <img src="Screenshots/NewcomerDashboard.png" width="45%">
-  <img src="Screenshots/ProviderDashboard.png" width="45%">
-</p>
+  <img src="Screenshots/newcommer-page.jpeg" width="45%">
+  <img src="Screenshots/ocr-verification.jpeg" width="45%">
+</p> -->
 
 ## Quick Start
 
@@ -132,7 +131,7 @@ See `server/.env.example` for all configuration options:
 - `MONGODB_URI` — MongoDB connection string
 - `JWT_SECRET` / `JWT_REFRESH_SECRET` — Authentication secrets
 - `CLOUDINARY_*` — File upload (optional, uses placeholders in dev)
-- `RAZORPAY_*` — Payment gateway (mock mode without keys)
+- `Cashfree_*` — Payment gateway (mock mode without keys)
 - `CLIENT_URL` — Frontend URL for CORS
 
 ## Security
